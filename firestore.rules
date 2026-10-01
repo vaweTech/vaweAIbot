@@ -1,0 +1,35 @@
+rules_version = '2';
+
+// The admin console writes through the Firebase Admin SDK, which bypasses these
+// rules entirely. So everything here is about what a *browser* client may do.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /questions/{questionId} {
+      // Signed-in students may read question text and metadata, but only for
+      // questions that have been approved.
+      allow read: if request.auth != null
+                  && resource.data.status == 'approved';
+
+      // All writes go through the server so embeddings stay consistent.
+      allow write: if false;
+
+      // Model answers, key points and vectors live here. No client may read
+      // them, otherwise students could look up the expected answer.
+      match /private/{document=**} {
+        allow read, write: if false;
+      }
+    }
+
+    // Scoring config is written by the calibration tooling on the server.
+    match /config/{document} {
+      allow read: if false;
+      allow write: if false;
+    }
+
+    // Everything not listed above is denied.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

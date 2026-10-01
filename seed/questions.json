@@ -1,0 +1,588 @@
+[
+  {
+    "type": "technical",
+    "question": "What is a closure in JavaScript and where would you use one?",
+    "category": "JavaScript",
+    "role": "Frontend Developer",
+    "difficulty": "Intermediate",
+    "tags": ["javascript", "functions", "scope"],
+    "modelAnswer": "A closure is a function that keeps access to the variables of the scope in which it was created, even after that outer function has finished running. The inner function holds on to that environment. Closures are used for data privacy, for factory functions, and for callbacks that need to remember some state.",
+    "keyPoints": [
+      { "text": "A function that remembers variables from its outer scope", "synonyms": ["inner function keeps outer variables", "remembers lexical scope", "function inside a function"], "weight": 3, "mustHave": true },
+      { "text": "The outer scope stays alive even after the outer function returns", "synonyms": ["variables are not garbage collected", "scope persists after return"], "weight": 3, "mustHave": false },
+      { "text": "Used for private data and encapsulation", "synonyms": ["data hiding", "private variables", "cannot be accessed from outside"], "weight": 2, "mustHave": false },
+      { "text": "Common in callbacks, counters and factory functions", "synonyms": ["event handlers", "counter example", "function factory"], "weight": 1, "mustHave": false }
+    ],
+    "followUpQuestion": "Can you write a counter function using a closure?",
+    "status": "approved"
+  },
+  {
+    "type": "technical",
+    "question": "What is the difference between var, let and const in JavaScript?",
+    "category": "JavaScript",
+    "role": "Any",
+    "difficulty": "Beginner",
+    "tags": ["javascript", "variables"],
+    "modelAnswer": "var is function scoped and is hoisted with an initial value of undefined, so it can be used before it is declared. let and const are block scoped and cannot be used before declaration. let can be reassigned, const cannot be reassigned, although the contents of an object declared with const can still be changed.",
+    "keyPoints": [
+      { "text": "var is function scoped while let and const are block scoped", "synonyms": ["block scope", "curly braces scope", "function level scope"], "weight": 3, "mustHave": true },
+      { "text": "const cannot be reassigned after declaration", "synonyms": ["read only binding", "cannot change the value", "immutable reference"], "weight": 3, "mustHave": true },
+      { "text": "let can be reassigned but not redeclared in the same scope", "synonyms": ["can update the value"], "weight": 2, "mustHave": false },
+      { "text": "var is hoisted as undefined while let and const stay in the temporal dead zone", "synonyms": ["hoisting", "cannot access before initialisation"], "weight": 2, "mustHave": false }
+    ],
+    "followUpQuestion": "If const cannot be reassigned, why can I still push into a const array?",
+    "status": "approved"
+  },
+  {
+    "type": "technical",
+    "question": "What is the difference between == and === in JavaScript?",
+    "category": "JavaScript",
+    "role": "Any",
+    "difficulty": "Beginner",
+    "tags": ["javascript", "operators"],
+    "modelAnswer": "The double equals operator compares values after converting them to a common type, which is called type coercion. The triple equals operator compares both the value and the type and does no conversion. Triple equals is preferred because it avoids surprising results such as a string being treated as equal to a number.",
+    "keyPoints": [
+      { "text": "Double equals converts types before comparing", "synonyms": ["type coercion", "loose equality", "changes the type"], "weight": 3, "mustHave": true },
+      { "text": "Triple equals compares value and type with no conversion", "synonyms": ["strict equality", "checks the data type also"], "weight": 3, "mustHave": true },
+      { "text": "Strict equality is the safer default", "synonyms": ["always use triple equals", "avoids unexpected bugs"], "weight": 1, "mustHave": false }
+    ],
+    "followUpQuestion": "What does the expression 0 == false return, and why?",
+    "status": "approved"
+  },
+  {
+    "type": "technical",
+    "question": "How does JavaScript handle asynchronous work if it is single threaded?",
+    "category": "JavaScript",
+    "role": "Full Stack Developer",
+    "difficulty": "Advanced",
+    "tags": ["javascript", "event loop", "async"],
+    "modelAnswer": "JavaScript runs your code on a single call stack, but slow work such as network requests and timers is handed to the browser or to Node. When that work finishes, the callback is placed in a queue. The event loop takes items from the queue and pushes them on to the call stack once the stack is empty. Promise callbacks sit in the microtask queue, which is drained before the timer queue.",
+    "keyPoints": [
+      { "text": "One call stack executes code at a time", "synonyms": ["single thread", "one thing at a time", "main thread"], "weight": 3, "mustHave": true },
+      { "text": "Slow operations are handed off to the browser or Node APIs", "synonyms": ["web APIs", "offloaded", "background"], "weight": 3, "mustHave": false },
+      { "text": "The event loop moves finished callbacks from the queue on to the stack", "synonyms": ["callback queue", "task queue", "loop checks the stack"], "weight": 3, "mustHave": true },
+      { "text": "Microtasks from promises run before timer callbacks", "synonyms": ["promise queue runs first", "setTimeout runs later", "macrotask"], "weight": 2, "mustHave": false }
+    ],
+    "followUpQuestion": "If setTimeout is given a delay of zero, when does the callback actually run?",
+    "status": "approved"
+  },
+  {
+    "type": "technical",
+    "question": "What is the difference between props and state in React?",
+    "category": "React",
+    "role": "Frontend Developer",
+    "difficulty": "Beginner",
+    "tags": ["react", "components"],
+    "modelAnswer": "Props are the data a component receives from its parent. They are read only inside the component. State is data the component owns and manages itself, and updating it with the setter causes the component to re-render. Props flow down the tree, while state is local to the component that declares it.",
+    "keyPoints": [
+      { "text": "Props are passed in from the parent component", "synonyms": ["received from outside", "given by parent", "input to the component"], "weight": 3, "mustHave": true },
+      { "text": "Props are read only and must not be modified by the child", "synonyms": ["immutable", "cannot change props"], "weight": 2, "mustHave": false },
+      { "text": "State is owned and managed inside the component", "synonyms": ["local data", "internal data", "component's own data"], "weight": 3, "mustHave": true },
+      { "text": "Updating state triggers a re-render", "synonyms": ["component renders again", "UI updates", "setState causes refresh"], "weight": 2, "mustHave": false }
+    ],
+    "followUpQuestion": "How would you let a child component change data that lives in the parent?",
+    "status": "approved"
+  },
+  {
+    "type": "technical",
+    "question": "What does the useEffect hook do and when does it run?",
+    "category": "React",
+    "role": "Frontend Developer",
+    "difficulty": "Intermediate",
+    "tags": ["react", "hooks"],
+    "modelAnswer": "useEffect lets you run side effects such as fetching data, setting up a subscription or working with the DOM after the component has rendered. The dependency array controls when it runs. An empty array means it runs once after the first render, and listing values means it runs again whenever those values change. Returning a function from the effect gives you cleanup, which React runs before the next effect and when the component unmounts.",
+    "keyPoints": [
+      { "text": "Runs side effects after the component renders", "synonyms": ["data fetching", "subscriptions", "outside of rendering"], "weight": 3, "mustHave": true },
+      { "text": "The dependency array controls when the effect re-runs", "synonyms": ["second argument", "dependencies decide", "array of values"], "weight": 3, "mustHave": true },
+      { "text": "An empty dependency array runs the effect only once", "synonyms": ["only on mount", "first render only"], "weight": 2, "mustHave": false },
+      { "text": "The returned function cleans up, for example on unmount", "synonyms": ["cleanup function", "clear the timer", "unsubscribe"], "weight": 2, "mustHave": false }
+    ],
+    "followUpQuestion": "What happens if you fetch data in useEffect but forget the dependency array?",
+    "status": "approved"
+  },
+  {
+    "type": "technical",
+    "question": "Why does React need a key prop when rendering a list?",
+    "category": "React",
+    "role": "Frontend Developer",
+    "difficulty": "Intermediate",
+    "tags": ["react", "lists", "reconciliation"],
+    "modelAnswer": "Keys give each element in a list a stable identity so React can tell which items were added, removed or reordered between renders. With good keys React updates only what changed instead of rebuilding the list. Using the array index as a key causes bugs when the list is reordered or filtered, because the same index then points to different data.",
+    "keyPoints": [
+      { "text": "Keys give list items a stable identity across renders", "synonyms": ["unique identifier", "React can track each item", "identify elements"], "weight": 3, "mustHave": true },
+      { "text": "They let React update only the items that changed", "synonyms": ["efficient reconciliation", "avoids re-rendering everything", "better performance"], "weight": 2, "mustHave": false },
+      { "text": "Using the array index as a key breaks on reorder or delete", "synonyms": ["index is a bad key", "wrong item updates", "causes bugs when sorting"], "weight": 3, "mustHave": false },
+      { "text": "A database id is the best choice of key", "synonyms": ["unique id from data", "primary key"], "weight": 1, "mustHave": false }
+    ],
+    "followUpQuestion": "When is it actually acceptable to use the index as a key?",
+    "status": "approved"
+  },
+  {
+    "type": "technical",
+    "question": "Why is Node.js described as non blocking and event driven?",
+    "category": "Node.js",
+    "role": "Backend Developer",
+    "difficulty": "Intermediate",
+    "tags": ["nodejs", "async"],
+    "modelAnswer": "Node runs JavaScript on a single thread but does not wait for slow input and output work. When it reads a file or queries a database it registers a callback and moves on to the next request. The operating system or the thread pool does the waiting, and the event loop runs the callback once the result is ready. This lets one Node process handle many concurrent connections without a thread per request.",
+    "keyPoints": [
+      { "text": "Input and output operations do not block the main thread", "synonyms": ["does not wait", "non blocking IO", "continues other work"], "weight": 3, "mustHave": true },
+      { "text": "Callbacks or promises are run by the event loop when work completes", "synonyms": ["event loop", "callback when ready", "notified on completion"], "weight": 3, "mustHave": true },
+      { "text": "One process serves many concurrent connections", "synonyms": ["handles thousands of requests", "high concurrency", "no thread per request"], "weight": 2, "mustHave": false },
+      { "text": "CPU heavy work still blocks and should be moved off the main thread", "synonyms": ["worker threads", "heavy computation is a problem", "blocking the loop"], "weight": 2, "mustHave": false }
+    ],
+    "followUpQuestion": "What happens to other requests if one handler runs a long synchronous loop?",
+    "status": "approved"
+  },
+  {
+    "type": "technical",
+    "question": "What is middleware in Express and how does it work?",
+    "category": "Node.js",
+    "role": "Backend Developer",
+    "difficulty": "Intermediate",
+    "tags": ["nodejs", "express", "api"],
+    "modelAnswer": "Middleware is a function that receives the request, the response and a next function, and sits in the pipeline between the incoming request and the final route handler. It can read or change the request, end the response early, or call next to pass control to the next middleware. Typical uses are body parsing, logging, authentication and error handling. Order matters because middleware runs in the order it is registered.",
+    "keyPoints": [
+      { "text": "A function that receives request, response and next", "synonyms": ["req res next", "takes three arguments"], "weight": 3, "mustHave": true },
+      { "text": "Runs between the request arriving and the route handler", "synonyms": ["in the pipeline", "before the controller", "intercepts the request"], "weight": 3, "mustHave": true },
+      { "text": "Calling next passes control to the next middleware", "synonyms": ["chain continues", "hands over control"], "weight": 2, "mustHave": false },
+      { "text": "Used for authentication, logging, parsing and error handling", "synonyms": ["auth check", "validation", "common examples"], "weight": 2, "mustHave": false }
+    ],
+    "followUpQuestion": "What happens if a middleware never calls next and never sends a response?",
+    "status": "approved"
+  },
+  {
+    "type": "technical",
+    "question": "What is the difference between an INNER JOIN and a LEFT JOIN?",
+    "category": "SQL",
+    "role": "Backend Developer",
+    "difficulty": "Intermediate",
+    "tags": ["sql", "joins"],
+    "modelAnswer": "An INNER JOIN returns only the rows where the join condition matches in both tables. A LEFT JOIN returns every row from the left table, and where there is no match in the right table the right hand columns come back as null. So a LEFT JOIN is used when you still want the left rows even if the related record is missing, for example customers who have not placed any order.",
+    "keyPoints": [
+      { "text": "INNER JOIN returns only matching rows from both tables", "synonyms": ["only common records", "intersection", "must match on both sides"], "weight": 3, "mustHave": true },
+      { "text": "LEFT JOIN keeps all rows from the left table", "synonyms": ["all records from first table", "left side preserved"], "weight": 3, "mustHave": true },
+      { "text": "Unmatched columns from the right table become null", "synonyms": ["null values", "empty for missing match"], "weight": 2, "mustHave": false },
+      { "text": "LEFT JOIN is useful for finding records with no related row", "synonyms": ["customers without orders", "find missing data"], "weight": 1, "mustHave": false }
+    ],
+    "followUpQuestion": "How would you list only the customers who have never placed an order?",
+    "status": "approved"
+  },
+  {
+    "type": "technical",
+    "question": "What is a database index and what is the trade off in using one?",
+    "category": "SQL",
+    "role": "Backend Developer",
+    "difficulty": "Advanced",
+    "tags": ["sql", "performance", "index"],
+    "modelAnswer": "An index is a separate data structure, usually a B tree, that lets the database find rows by a column value without scanning the whole table. Reads on the indexed column become much faster. The cost is extra storage and slower writes, because every insert, update and delete has to maintain the index as well. Indexes also only help if the query can actually use them, so too many unused indexes are pure overhead.",
+    "keyPoints": [
+      { "text": "Speeds up lookups by avoiding a full table scan", "synonyms": ["faster select", "faster search", "no need to read every row"], "weight": 3, "mustHave": true },
+      { "text": "Writes become slower because the index must be maintained", "synonyms": ["insert update delete cost", "slower writes", "overhead on modification"], "weight": 3, "mustHave": true },
+      { "text": "Uses additional disk space", "synonyms": ["extra storage", "memory cost"], "weight": 2, "mustHave": false },
+      { "text": "Usually implemented as a B tree structure", "synonyms": ["balanced tree", "sorted structure"], "weight": 1, "mustHave": false }
+    ],
+    "followUpQuestion": "Would you put an index on a column that has only two distinct values?",
+    "status": "approved"
+  },
+  {
+    "type": "technical",
+    "question": "What is the difference between the WHERE clause and the HAVING clause?",
+    "category": "SQL",
+    "role": "Data Analyst",
+    "difficulty": "Beginner",
+    "tags": ["sql", "aggregation"],
+    "modelAnswer": "WHERE filters individual rows before any grouping happens, so it cannot use aggregate functions. HAVING filters the groups after GROUP BY has been applied, so it can use aggregates such as COUNT or SUM. In practice you use WHERE to narrow down the raw rows and HAVING to keep only the groups that satisfy a condition on their aggregate.",
+    "keyPoints": [
+      { "text": "WHERE filters rows before grouping", "synonyms": ["applied first", "filters individual records", "before GROUP BY"], "weight": 3, "mustHave": true },
+      { "text": "HAVING filters groups after GROUP BY", "synonyms": ["applied after grouping", "filters the result of group by"], "weight": 3, "mustHave": true },
+      { "text": "Aggregate functions can be used in HAVING but not in WHERE", "synonyms": ["count sum average", "cannot use aggregate in where"], "weight": 2, "mustHave": false }
+    ],
+    "followUpQuestion": "Write a query that shows only departments with more than five employees.",
+    "status": "approved"
+  },
+  {
+    "type": "technical",
+    "question": "What is normalization in a database and why is it done?",
+    "category": "DBMS",
+    "role": "Any",
+    "difficulty": "Intermediate",
+    "tags": ["dbms", "design"],
+    "modelAnswer": "Normalization is the process of organising tables so that data is not repeated unnecessarily. You split large tables into related smaller ones and connect them with keys. This removes redundancy and avoids update, insert and delete anomalies where the same fact is stored in two places and they fall out of step. The usual forms are first, second and third normal form. Sometimes people deliberately denormalise for read performance.",
+    "keyPoints": [
+      { "text": "Removes duplicate or repeated data", "synonyms": ["reduces redundancy", "avoids storing the same thing twice"], "weight": 3, "mustHave": true },
+      { "text": "Splits data into related tables joined by keys", "synonyms": ["break into smaller tables", "foreign key relationships"], "weight": 3, "mustHave": true },
+      { "text": "Prevents update, insert and delete anomalies", "synonyms": ["data inconsistency", "anomalies", "data stays consistent"], "weight": 2, "mustHave": false },
+      { "text": "Progresses through first, second and third normal form", "synonyms": ["1NF 2NF 3NF", "normal forms"], "weight": 2, "mustHave": false }
+    ],
+    "followUpQuestion": "When would you deliberately denormalise a schema?",
+    "status": "approved"
+  },
+  {
+    "type": "technical",
+    "question": "Explain the ACID properties of a database transaction.",
+    "category": "DBMS",
+    "role": "Backend Developer",
+    "difficulty": "Advanced",
+    "tags": ["dbms", "transactions"],
+    "modelAnswer": "Atomicity means a transaction either completes fully or has no effect at all. Consistency means the database moves from one valid state to another and all constraints still hold. Isolation means concurrent transactions do not interfere with each other, as if they ran one after another. Durability means once a transaction commits, the change survives a crash or power loss because it has been written to permanent storage.",
+    "keyPoints": [
+      { "text": "Atomicity means all or nothing", "synonyms": ["fully complete or rollback", "either all steps or none"], "weight": 3, "mustHave": true },
+      { "text": "Consistency keeps the database in a valid state", "synonyms": ["constraints are respected", "valid state to valid state"], "weight": 3, "mustHave": false },
+      { "text": "Isolation stops concurrent transactions from interfering", "synonyms": ["transactions do not affect each other", "as if run sequentially"], "weight": 3, "mustHave": true },
+      { "text": "Durability means committed data survives a crash", "synonyms": ["permanently saved", "persists after failure", "written to disk"], "weight": 3, "mustHave": false }
+    ],
+    "followUpQuestion": "What problem does a dirty read cause, and which property prevents it?",
+    "status": "approved"
+  },
+  {
+    "type": "technical",
+    "question": "What is the difference between a list and a tuple in Python?",
+    "category": "Python",
+    "role": "Python Developer",
+    "difficulty": "Beginner",
+    "tags": ["python", "data structures"],
+    "modelAnswer": "A list is mutable, so you can add, remove or change elements after it is created, and it is written with square brackets. A tuple is immutable, written with parentheses, and cannot be changed once created. Because tuples are immutable they can be used as dictionary keys and they are slightly faster and lighter. Lists suit collections that change, tuples suit fixed records.",
+    "keyPoints": [
+      { "text": "A list is mutable and can be changed after creation", "synonyms": ["can add or remove items", "modifiable", "append is possible"], "weight": 3, "mustHave": true },
+      { "text": "A tuple is immutable and cannot be changed", "synonyms": ["read only", "fixed once created", "cannot modify"], "weight": 3, "mustHave": true },
+      { "text": "Lists use square brackets and tuples use parentheses", "synonyms": ["different syntax", "round brackets"], "weight": 1, "mustHave": false },
+      { "text": "Tuples can be dictionary keys because they are hashable", "synonyms": ["hashable", "usable as a key", "can go in a set"], "weight": 2, "mustHave": false }
+    ],
+    "followUpQuestion": "Can a tuple ever contain something that changes?",
+    "status": "approved"
+  },
+  {
+    "type": "technical",
+    "question": "What is a decorator in Python and why would you use one?",
+    "category": "Python",
+    "role": "Python Developer",
+    "difficulty": "Advanced",
+    "tags": ["python", "functions"],
+    "modelAnswer": "A decorator is a function that takes another function and returns a new function that wraps it, adding behaviour without changing the original code. You apply it with the at symbol above a function definition. It is useful for cross cutting concerns such as logging, timing, caching, authentication checks and retries, because the same wrapper can be reused across many functions.",
+    "keyPoints": [
+      { "text": "A function that wraps another function and returns a new one", "synonyms": ["takes a function as input", "returns a wrapper", "higher order function"], "weight": 3, "mustHave": true },
+      { "text": "Adds behaviour without modifying the original function", "synonyms": ["extends functionality", "does not change the source", "reusable wrapper"], "weight": 3, "mustHave": true },
+      { "text": "Applied using the at symbol above the definition", "synonyms": ["@ syntax", "annotation above the function"], "weight": 1, "mustHave": false },
+      { "text": "Common for logging, timing, caching and access control", "synonyms": ["authentication", "memoisation", "measure execution time"], "weight": 2, "mustHave": false }
+    ],
+    "followUpQuestion": "Why is functools.wraps usually used inside a decorator?",
+    "status": "approved"
+  },
+  {
+    "type": "technical",
+    "question": "What is the difference between method overloading and method overriding in Java?",
+    "category": "Java",
+    "role": "Java Developer",
+    "difficulty": "Intermediate",
+    "tags": ["java", "oop"],
+    "modelAnswer": "Overloading means having several methods in the same class with the same name but different parameter lists. The compiler decides which one to call, so it is resolved at compile time. Overriding means a subclass provides its own implementation of a method that it inherited from its parent, using the same signature. The decision is made at run time based on the actual object, which is how polymorphism works.",
+    "keyPoints": [
+      { "text": "Overloading uses the same method name with different parameters", "synonyms": ["different arguments", "same name different signature", "in the same class"], "weight": 3, "mustHave": true },
+      { "text": "Overriding replaces an inherited method in a subclass with the same signature", "synonyms": ["child class redefines parent method", "same signature in subclass"], "weight": 3, "mustHave": true },
+      { "text": "Overloading is resolved at compile time and overriding at run time", "synonyms": ["static binding and dynamic binding", "compile time versus runtime polymorphism"], "weight": 3, "mustHave": false },
+      { "text": "Overriding is how runtime polymorphism is achieved", "synonyms": ["dynamic dispatch", "parent reference calls child method"], "weight": 2, "mustHave": false }
+    ],
+    "followUpQuestion": "Can you override a static method in Java?",
+    "status": "approved"
+  },
+  {
+    "type": "technical",
+    "question": "When would you choose an interface over an abstract class in Java?",
+    "category": "Java",
+    "role": "Java Developer",
+    "difficulty": "Intermediate",
+    "tags": ["java", "oop", "design"],
+    "modelAnswer": "An interface describes a capability that unrelated classes can implement, and a class can implement many interfaces, which works around the lack of multiple inheritance. An abstract class is for sharing common state and partially implemented behaviour among closely related classes, and a class can extend only one. So use an interface for a contract about what something can do, and an abstract class when subclasses genuinely share fields and code.",
+    "keyPoints": [
+      { "text": "A class can implement many interfaces but extend only one class", "synonyms": ["multiple inheritance of type", "only single class inheritance"], "weight": 3, "mustHave": true },
+      { "text": "An interface defines a contract or capability", "synonyms": ["only method signatures", "what a class can do", "no implementation"], "weight": 3, "mustHave": true },
+      { "text": "An abstract class can hold fields and shared implementation", "synonyms": ["common code", "instance variables", "partial implementation"], "weight": 3, "mustHave": false },
+      { "text": "Use an abstract class for closely related classes and an interface for unrelated ones", "synonyms": ["is a relationship", "can do relationship"], "weight": 2, "mustHave": false }
+    ],
+    "followUpQuestion": "Java interfaces can have default methods now, so does that change your answer?",
+    "status": "approved"
+  },
+  {
+    "type": "technical",
+    "question": "What is the difference between Flexbox and CSS Grid, and when would you use each?",
+    "category": "HTML/CSS",
+    "role": "Frontend Developer",
+    "difficulty": "Beginner",
+    "tags": ["css", "layout"],
+    "modelAnswer": "Flexbox lays out items along a single axis, either a row or a column, and is good at distributing space and aligning items in one direction, such as a navigation bar. Grid is two dimensional and lets you define rows and columns together, which suits page level layouts like a sidebar with a header and content area. They are complementary and are often used together.",
+    "keyPoints": [
+      { "text": "Flexbox works in one dimension, a row or a column", "synonyms": ["single axis", "one direction", "linear layout"], "weight": 3, "mustHave": true },
+      { "text": "Grid works in two dimensions with rows and columns together", "synonyms": ["2D layout", "define rows and columns", "grid template"], "weight": 3, "mustHave": true },
+      { "text": "Flexbox suits components like navigation bars and button groups", "synonyms": ["toolbar", "small components", "aligning a few items"], "weight": 2, "mustHave": false },
+      { "text": "Grid suits overall page layout", "synonyms": ["page structure", "sidebar and content", "dashboard layout"], "weight": 2, "mustHave": false }
+    ],
+    "followUpQuestion": "How would you centre a single element both horizontally and vertically?",
+    "status": "approved"
+  },
+  {
+    "type": "technical",
+    "question": "What is overfitting in machine learning and how do you prevent it?",
+    "category": "Data Science",
+    "role": "Data Analyst",
+    "difficulty": "Intermediate",
+    "tags": ["machine learning", "modelling"],
+    "modelAnswer": "Overfitting is when a model learns the training data too closely, including its noise, so it scores very well on training data but poorly on unseen data. You detect it by comparing training and validation performance. It is reduced by getting more or more varied data, simplifying the model, applying regularisation, using cross validation, and stopping training early when validation performance stops improving.",
+    "keyPoints": [
+      { "text": "The model performs well on training data but badly on new data", "synonyms": ["does not generalise", "poor test accuracy", "high training accuracy low validation accuracy"], "weight": 3, "mustHave": true },
+      { "text": "The model has learned noise rather than the real pattern", "synonyms": ["memorised the data", "fits noise", "too complex for the data"], "weight": 3, "mustHave": false },
+      { "text": "Detected by comparing training and validation scores", "synonyms": ["validation set", "holdout data", "cross validation"], "weight": 2, "mustHave": false },
+      { "text": "Reduced with regularisation, simpler models, more data or early stopping", "synonyms": ["dropout", "L1 L2 penalty", "prune the model", "augment the data"], "weight": 3, "mustHave": true }
+    ],
+    "followUpQuestion": "What does underfitting look like, and how is it different?",
+    "status": "approved"
+  },
+  {
+    "type": "hr",
+    "question": "Tell me about yourself.",
+    "category": "HR",
+    "role": "Any",
+    "difficulty": "Beginner",
+    "tags": ["hr", "introduction"],
+    "modelAnswer": "A strong answer is a short professional summary rather than a life story. Start with who you are academically or professionally, mention one or two relevant skills or projects with a concrete result, and finish by connecting your interest to this particular role. Keep it to under two minutes and stay on topics that matter to the job.",
+    "keyPoints": [
+      { "text": "Opens with a clear professional or academic identity", "synonyms": ["current course or job", "who I am", "background"], "weight": 3, "mustHave": true },
+      { "text": "Highlights relevant skills or a specific project", "synonyms": ["technologies I know", "my project", "practical experience"], "weight": 3, "mustHave": true },
+      { "text": "Mentions a concrete achievement or measurable result", "synonyms": ["what I accomplished", "outcome", "improved something"], "weight": 2, "mustHave": false },
+      { "text": "Connects the background to this specific role", "synonyms": ["why this job", "fits the position", "what I want next"], "weight": 3, "mustHave": false },
+      { "text": "Stays concise and avoids unrelated personal detail", "synonyms": ["brief", "to the point", "not my whole life story"], "weight": 1, "mustHave": false }
+    ],
+    "followUpQuestion": "Which of those projects are you proudest of, and what was your exact contribution?",
+    "status": "approved"
+  },
+  {
+    "type": "hr",
+    "question": "What is your greatest weakness?",
+    "category": "HR",
+    "role": "Any",
+    "difficulty": "Intermediate",
+    "tags": ["hr", "self awareness"],
+    "modelAnswer": "A good answer names a real weakness that does not disqualify you for the role, shows self awareness about how it has affected your work, and then describes the concrete steps being taken to improve along with evidence of progress. Answers that claim a fake weakness such as working too hard, or that name something central to the job, both land badly.",
+    "keyPoints": [
+      { "text": "Names a genuine and specific weakness", "synonyms": ["real area to improve", "honest answer", "actual shortcoming"], "weight": 3, "mustHave": true },
+      { "text": "Shows self awareness about its impact", "synonyms": ["how it affected my work", "I realised", "understands the consequence"], "weight": 2, "mustHave": false },
+      { "text": "Describes concrete action being taken to improve", "synonyms": ["steps I am taking", "how I am fixing it", "practising"], "weight": 3, "mustHave": true },
+      { "text": "Shows evidence of progress", "synonyms": ["improved since then", "getting better", "result of the effort"], "weight": 2, "mustHave": false },
+      { "text": "Avoids a fake weakness or one central to the job", "synonyms": ["not a humble brag", "not perfectionism cliche"], "weight": 1, "mustHave": false }
+    ],
+    "followUpQuestion": "Can you give an example of a time that weakness actually caused a problem?",
+    "status": "approved"
+  },
+  {
+    "type": "hr",
+    "question": "Why should we hire you for this role?",
+    "category": "HR",
+    "role": "Any",
+    "difficulty": "Intermediate",
+    "tags": ["hr", "fit"],
+    "modelAnswer": "The answer should match your specific strengths to what the role actually needs, back the claim with proof from past work rather than adjectives, and show that you understand the company and the problem the role exists to solve. Ending with what you would contribute in the first few months makes it concrete.",
+    "keyPoints": [
+      { "text": "Matches personal strengths to the requirements of the role", "synonyms": ["my skills fit the job", "what the position needs", "aligned with the job description"], "weight": 3, "mustHave": true },
+      { "text": "Backs the claim with evidence from past work", "synonyms": ["proof from my project", "example from experience", "not just claims"], "weight": 3, "mustHave": true },
+      { "text": "Shows understanding of the company and its needs", "synonyms": ["researched the company", "knows the product", "understands the problem"], "weight": 2, "mustHave": false },
+      { "text": "States the contribution the candidate would make", "synonyms": ["value I would add", "what I will deliver", "impact in the first months"], "weight": 2, "mustHave": false }
+    ],
+    "followUpQuestion": "What would you want to achieve in your first three months here?",
+    "status": "approved"
+  },
+  {
+    "type": "hr",
+    "question": "Describe a time you disagreed with a teammate. How did you handle it?",
+    "category": "HR",
+    "role": "Any",
+    "difficulty": "Intermediate",
+    "tags": ["hr", "behavioural", "teamwork"],
+    "modelAnswer": "Use a specific situation rather than a general statement. Explain the context and what the disagreement was actually about, describe how you listened to the other view and presented your own reasoning with facts or data, say how the decision was reached, and finish with the outcome and what you learned. Keeping the focus on the problem instead of the person is what interviewers look for.",
+    "keyPoints": [
+      { "text": "Describes a specific real situation with context", "synonyms": ["concrete example", "in my project", "actual incident"], "weight": 3, "mustHave": true },
+      { "text": "Shows listening to and understanding the other viewpoint", "synonyms": ["heard their side", "understood their reasoning", "respected the opinion"], "weight": 3, "mustHave": true },
+      { "text": "Explains how the case was argued with facts or data", "synonyms": ["used evidence", "showed the numbers", "explained my reasoning"], "weight": 2, "mustHave": false },
+      { "text": "Keeps the disagreement about the problem, not the person", "synonyms": ["not personal", "professional", "no conflict with the individual"], "weight": 2, "mustHave": false },
+      { "text": "Ends with the resolution and the lesson learned", "synonyms": ["outcome", "what I learned", "how it was decided"], "weight": 3, "mustHave": false }
+    ],
+    "followUpQuestion": "What would you do differently if the same disagreement happened again?",
+    "status": "approved"
+  },
+  {
+    "type": "hr",
+    "question": "Where do you see yourself in five years?",
+    "category": "HR",
+    "role": "Any",
+    "difficulty": "Beginner",
+    "tags": ["hr", "goals"],
+    "modelAnswer": "A credible answer describes a direction rather than a job title, shows ambition to deepen technical skill and take on more responsibility, and links that growth to a path that is realistic inside this company. Showing that you have thought about how to get there, through learning and taking on harder problems, matters more than naming a designation.",
+    "keyPoints": [
+      { "text": "Describes a clear direction of growth", "synonyms": ["career path", "where I want to go", "long term goal"], "weight": 3, "mustHave": true },
+      { "text": "Mentions deepening skills and taking more responsibility", "synonyms": ["become an expert", "lead a team", "own bigger projects"], "weight": 3, "mustHave": false },
+      { "text": "Links the goal to growth within this company", "synonyms": ["grow here", "realistic in this organisation", "with the company"], "weight": 2, "mustHave": true },
+      { "text": "Explains the steps planned to get there", "synonyms": ["how I will achieve it", "keep learning", "plan"], "weight": 2, "mustHave": false }
+    ],
+    "followUpQuestion": "What skill are you working on right now to move in that direction?",
+    "status": "approved"
+  },
+  {
+    "type": "gd",
+    "question": "Is working from home better than working from the office?",
+    "category": "Career",
+    "role": "Any",
+    "difficulty": "Beginner",
+    "tags": ["work culture", "remote work"],
+    "modelAnswer": "A balanced contribution accepts that remote work saves commute time and widens the talent pool, while the office is stronger for collaboration, mentoring and the informal learning that juniors depend on. Most organisations have settled on a hybrid arrangement, and the right answer depends on the type of work and the stage of a person's career.",
+    "keyPoints": [
+      { "text": "Remote work saves commuting time and cost", "synonyms": ["no travel", "saves money on transport", "more personal time"], "weight": 3, "mustHave": true, "side": "for" },
+      { "text": "Companies can hire talent from any location", "synonyms": ["wider talent pool", "hire from smaller cities", "geography does not matter"], "weight": 2, "mustHave": false, "side": "for" },
+      { "text": "Office collaboration and mentoring are harder to replace remotely", "synonyms": ["face to face discussion", "learning from seniors", "team bonding"], "weight": 3, "mustHave": true, "side": "against" },
+      { "text": "Remote work can blur boundaries and cause isolation", "synonyms": ["no work life balance", "loneliness", "always online"], "weight": 2, "mustHave": false, "side": "against" },
+      { "text": "Hybrid models combine both and are now common", "synonyms": ["three days in office", "mix of both", "flexible arrangement"], "weight": 2, "mustHave": false, "side": "example" }
+    ],
+    "botLines": [
+      "I feel remote work has clearly improved productivity for focused tasks like coding.",
+      "But for a fresher joining a company, sitting next to a senior teaches far more than a video call.",
+      "Most companies I know have settled on a hybrid model, so perhaps the debate is already answered."
+    ],
+    "status": "approved"
+  },
+  {
+    "type": "gd",
+    "question": "Is social media doing more harm than good to students?",
+    "category": "Society",
+    "role": "Any",
+    "difficulty": "Beginner",
+    "tags": ["social media", "youth"],
+    "modelAnswer": "Social media gives students access to free learning material, professional networks and a platform to showcase work, but it also drives distraction, comparison and mental health problems, and spreads misinformation quickly. The sensible position is that the harm comes from unregulated use rather than from the platform itself, so digital literacy and self imposed limits matter more than banning it.",
+    "keyPoints": [
+      { "text": "Gives access to free learning resources and knowledge", "synonyms": ["educational content", "online tutorials", "learn new skills"], "weight": 3, "mustHave": false, "side": "for" },
+      { "text": "Helps students build networks and showcase their work", "synonyms": ["professional connections", "LinkedIn", "portfolio visibility"], "weight": 2, "mustHave": false, "side": "for" },
+      { "text": "Causes distraction and loss of study time", "synonyms": ["addiction", "wastes hours", "cannot concentrate"], "weight": 3, "mustHave": true, "side": "against" },
+      { "text": "Comparison affects mental health and self esteem", "synonyms": ["anxiety", "depression", "feeling inferior", "fear of missing out"], "weight": 3, "mustHave": true, "side": "against" },
+      { "text": "Misinformation spreads faster than corrections", "synonyms": ["fake news", "rumours", "unverified information"], "weight": 2, "mustHave": false, "side": "against" },
+      { "text": "Digital literacy and time limits are better than a ban", "synonyms": ["use it responsibly", "screen time limits", "awareness is the solution"], "weight": 2, "mustHave": false, "side": "example" }
+    ],
+    "botLines": [
+      "I think the real issue is not social media itself but how many hours we spend on it without noticing.",
+      "At the same time, many of us learned programming from free content on these very platforms.",
+      "Perhaps schools should teach digital discipline the way they teach any other subject."
+    ],
+    "status": "approved"
+  },
+  {
+    "type": "gd",
+    "question": "Should coding be a compulsory subject in school education?",
+    "category": "Education",
+    "role": "Any",
+    "difficulty": "Intermediate",
+    "tags": ["education", "curriculum", "technology"],
+    "modelAnswer": "Making coding compulsory builds logical thinking and problem solving early and reduces the gap between students from different backgrounds. The objections are real too: many schools lack trained teachers and computers, and forcing a technical subject on students with other aptitudes may add pressure without benefit. A middle path is teaching computational thinking to everyone and keeping advanced programming optional.",
+    "keyPoints": [
+      { "text": "Builds logical thinking and problem solving from an early age", "synonyms": ["analytical skills", "structured thinking", "improves reasoning"], "weight": 3, "mustHave": true, "side": "for" },
+      { "text": "Improves employability in a digital economy", "synonyms": ["job opportunities", "future ready", "industry demand"], "weight": 2, "mustHave": false, "side": "for" },
+      { "text": "Reduces the digital divide between urban and rural students", "synonyms": ["equal opportunity", "levels the playing field", "access for everyone"], "weight": 2, "mustHave": false, "side": "for" },
+      { "text": "Many schools lack trained teachers and infrastructure", "synonyms": ["no computers", "untrained faculty", "poor facilities"], "weight": 3, "mustHave": true, "side": "against" },
+      { "text": "Forcing it adds pressure on students with different aptitudes", "synonyms": ["not everyone is interested", "academic burden", "already too many subjects"], "weight": 2, "mustHave": false, "side": "against" },
+      { "text": "Teach computational thinking to all and keep advanced coding optional", "synonyms": ["basic logic for everyone", "elective subject", "middle path"], "weight": 2, "mustHave": false, "side": "example" }
+    ],
+    "botLines": [
+      "Coding teaches a way of breaking problems down, and that helps in any career.",
+      "But I have seen government schools where a single computer lab serves six hundred students.",
+      "Maybe the subject should be logic and problem solving first, and a specific language much later."
+    ],
+    "status": "approved"
+  },
+  {
+    "type": "gd",
+    "question": "Can online education replace classroom learning?",
+    "category": "Education",
+    "role": "Any",
+    "difficulty": "Intermediate",
+    "tags": ["education", "online learning"],
+    "modelAnswer": "Online education scales cheaply, lets students learn at their own pace and gives access to teaching that would otherwise be out of reach. However it depends on reliable internet and devices, has very high drop off rates without accountability, and cannot easily deliver laboratory work, peer discussion or the discipline of a physical classroom. A blended model is the realistic outcome rather than full replacement.",
+    "keyPoints": [
+      { "text": "Reaches students at low cost regardless of location", "synonyms": ["affordable", "accessible anywhere", "scales to many learners"], "weight": 3, "mustHave": true, "side": "for" },
+      { "text": "Allows self paced learning and revisiting recorded material", "synonyms": ["learn at own speed", "replay lectures", "flexible timing"], "weight": 2, "mustHave": false, "side": "for" },
+      { "text": "Requires stable internet and devices that many lack", "synonyms": ["digital divide", "no smartphone", "poor connectivity"], "weight": 3, "mustHave": true, "side": "against" },
+      { "text": "Completion rates are low without accountability and discipline", "synonyms": ["students drop off", "no motivation", "easy to skip"], "weight": 2, "mustHave": false, "side": "against" },
+      { "text": "Practical labs and peer interaction are hard to reproduce online", "synonyms": ["no laboratory", "missing group discussion", "no face to face doubt clearing"], "weight": 3, "mustHave": false, "side": "against" },
+      { "text": "A blended model combining both is the practical answer", "synonyms": ["hybrid learning", "theory online and practicals offline", "supplement not replace"], "weight": 2, "mustHave": false, "side": "example" }
+    ],
+    "botLines": [
+      "During the pandemic we all learned online, and the lectures worked better than I expected.",
+      "Yet lab subjects suffered badly because watching an experiment is not the same as doing it.",
+      "I would argue online learning is an excellent supplement rather than a replacement."
+    ],
+    "status": "approved"
+  },
+  {
+    "type": "gd",
+    "question": "Are electric vehicles a practical solution for India today?",
+    "category": "Technology",
+    "role": "Any",
+    "difficulty": "Intermediate",
+    "tags": ["electric vehicles", "environment", "infrastructure"],
+    "modelAnswer": "Electric vehicles cut local air pollution and running costs, and government incentives have made two wheelers and three wheelers genuinely viable. The constraints are charging infrastructure outside big cities, high upfront cost, battery disposal, and the fact that much of the grid still runs on coal, which shifts emissions rather than removing them. Practical progress is happening fastest in short range urban and commercial use.",
+    "keyPoints": [
+      { "text": "Reduces air pollution in cities and cuts running cost per kilometre", "synonyms": ["no tailpipe emissions", "cheaper to run", "less petrol expense"], "weight": 3, "mustHave": true, "side": "for" },
+      { "text": "Government subsidies and falling battery prices improve viability", "synonyms": ["FAME scheme", "incentives", "cost coming down"], "weight": 2, "mustHave": false, "side": "for" },
+      { "text": "Charging infrastructure is limited outside major cities", "synonyms": ["few charging stations", "range anxiety", "no chargers on highways"], "weight": 3, "mustHave": true, "side": "against" },
+      { "text": "Upfront cost is still high for most buyers", "synonyms": ["expensive to purchase", "battery replacement cost", "unaffordable"], "weight": 2, "mustHave": false, "side": "against" },
+      { "text": "Electricity from coal shifts emissions rather than eliminating them", "synonyms": ["grid is not clean", "thermal power", "pollution moves elsewhere"], "weight": 3, "mustHave": false, "side": "against" },
+      { "text": "Two wheelers, autos and delivery fleets are adopting fastest", "synonyms": ["electric scooters", "last mile delivery", "short urban trips"], "weight": 2, "mustHave": false, "side": "example" }
+    ],
+    "botLines": [
+      "Electric two wheelers already make economic sense for daily city commuting.",
+      "The bigger question is whether our grid can supply clean power at that scale.",
+      "Battery recycling is the part of this debate that nobody seems to plan for."
+    ],
+    "status": "approved"
+  },
+  {
+    "type": "gd",
+    "question": "Should India move towards a fully cashless economy?",
+    "category": "Business",
+    "role": "Any",
+    "difficulty": "Intermediate",
+    "tags": ["digital payments", "economy", "inclusion"],
+    "modelAnswer": "Digital payments improve transparency, reduce the cost of handling cash and bring transactions into the formal economy, and UPI has shown adoption is possible at scale. Full removal of cash is harder to defend because it excludes people without smartphones, connectivity or digital literacy, creates privacy and surveillance concerns, and leaves the system fragile during outages. A cash light economy with a strong digital option is the realistic goal.",
+    "keyPoints": [
+      { "text": "Improves transparency and reduces black money and tax evasion", "synonyms": ["traceable transactions", "formal economy", "curbs corruption"], "weight": 3, "mustHave": true, "side": "for" },
+      { "text": "UPI has already shown mass adoption is achievable", "synonyms": ["digital payments are common", "even small shops accept it", "QR code payments"], "weight": 2, "mustHave": false, "side": "for" },
+      { "text": "Excludes people without smartphones, internet or digital literacy", "synonyms": ["elderly cannot use it", "rural exclusion", "no bank access"], "weight": 3, "mustHave": true, "side": "against" },
+      { "text": "Creates privacy concerns and risk of surveillance", "synonyms": ["every transaction is tracked", "data misuse", "loss of anonymity"], "weight": 2, "mustHave": false, "side": "against" },
+      { "text": "Outages, fraud and cyber attacks make a cash free system fragile", "synonyms": ["server down", "network failure", "online fraud"], "weight": 2, "mustHave": false, "side": "against" },
+      { "text": "A cash light economy rather than a cashless one is realistic", "synonyms": ["keep cash as backup", "both options available", "gradual transition"], "weight": 2, "mustHave": false, "side": "example" }
+    ],
+    "botLines": [
+      "UPI has changed behaviour so fast that even a tea stall now displays a QR code.",
+      "But I worry about my grandparents, who simply cannot operate a payment app.",
+      "Any system where a network outage stops you buying food needs a fallback."
+    ],
+    "status": "approved"
+  },
+  {
+    "type": "gd",
+    "question": "Does individual privacy matter more than national security?",
+    "category": "Society",
+    "role": "Any",
+    "difficulty": "Advanced",
+    "tags": ["privacy", "surveillance", "ethics"],
+    "modelAnswer": "Privacy is a recognised fundamental right and unchecked surveillance can be misused against dissent, so it cannot simply be traded away. Equally, states need intelligence powers to prevent terrorism and serious crime, and refusing all monitoring is not realistic. The productive framing is not which one wins but what safeguards make surveillance legitimate: a narrow legal basis, judicial oversight, proportionality and transparency.",
+    "keyPoints": [
+      { "text": "Privacy is a fundamental right and essential to personal freedom", "synonyms": ["constitutional right", "dignity", "freedom of expression"], "weight": 3, "mustHave": true, "side": "for" },
+      { "text": "Unchecked surveillance can be misused against critics and minorities", "synonyms": ["targeting journalists", "suppressing dissent", "abuse of power"], "weight": 3, "mustHave": false, "side": "for" },
+      { "text": "The state needs intelligence capability to prevent terrorism and crime", "synonyms": ["national safety", "stop attacks", "law enforcement needs data"], "weight": 3, "mustHave": true, "side": "against" },
+      { "text": "Some monitoring is accepted in practice, such as airport screening", "synonyms": ["security checks", "we already accept some intrusion"], "weight": 2, "mustHave": false, "side": "against" },
+      { "text": "Judicial oversight and proportionality make surveillance legitimate", "synonyms": ["court approval", "legal safeguards", "narrow and necessary", "accountability"], "weight": 3, "mustHave": false, "side": "example" },
+      { "text": "The two are not strictly opposed and can be balanced by law", "synonyms": ["false choice", "both can coexist", "not either or"], "weight": 2, "mustHave": false, "side": "example" }
+    ],
+    "botLines": [
+      "I would argue privacy cannot be treated as negotiable simply because security is invoked.",
+      "Still, agencies do need lawful powers to act before an attack rather than after it.",
+      "The real question is who authorises the surveillance and who reviews whether it was justified."
+    ],
+    "status": "approved"
+  }
+]
