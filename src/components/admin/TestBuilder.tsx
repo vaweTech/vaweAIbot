@@ -6,6 +6,7 @@ import { Modal } from "@/components/common/Modal";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { QuestionForm } from "@/components/admin/QuestionForm";
 import { adminFetch } from "@/lib/adminClient";
+import { answerMarksShare } from "@/lib/rubric";
 import { DIFFICULTIES, cn } from "@/lib/utils";
 import { emptyQuestionDraft, type QuestionSummary } from "@/types/questionBank";
 import {
@@ -38,6 +39,13 @@ const inputClass =
   "w-full rounded-xl border border-border px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20";
 
 const TYPE_OPTIONS: TestQuestionType[] = ["technical", "hr", "mixed"];
+
+/** How students will be graded, shown under the type picker. */
+const TYPE_GRADING_NOTE: Record<TestQuestionType, string> = {
+  technical: `Graded on technical correctness, required concepts and reasoning. Overall = ${answerMarksShare("technical")}% answer marks + ${100 - answerMarksShare("technical")}% English & delivery.`,
+  hr: `No technical score. Graded like an HR interviewer: relevance, expected points, real examples (STAR) and structure. Overall = ${answerMarksShare("hr")}% answer marks + ${100 - answerMarksShare("hr")}% communication & English.`,
+  mixed: "Each question is graded by its own type: technical questions for correctness, HR questions for relevance, examples and structure.",
+};
 
 async function fetchPool(): Promise<QuestionSummary[]> {
   const data = await adminFetch<{ questions: QuestionSummary[] }>("/api/admin/questions");
@@ -260,6 +268,7 @@ export function TestBuilder({ testId, initial, disabled }: TestBuilderProps) {
                   </button>
                 ))}
               </div>
+              <p className="mt-2 text-xs text-slate-500">{TYPE_GRADING_NOTE[questionType]}</p>
             </div>
           </div>
         </section>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
 import { Search } from "@/components/common/Search";
@@ -30,25 +30,26 @@ export default function AdminQuestionsPage() {
   const [filters, setFilters] = useState({ type: "", difficulty: "", status: "" });
   const [testing, setTesting] = useState<QuestionSummary | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const data = await adminFetch<{ questions: QuestionSummary[] }>(
-        "/api/admin/questions"
-      );
-      setQuestions(data.questions ?? []);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not load questions");
-      setQuestions([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
-    void load();
-  }, [load]);
+    let cancelled = false;
+    void adminFetch<{ questions: QuestionSummary[] }>("/api/admin/questions")
+      .then((data) => {
+        if (cancelled) return;
+        setQuestions(data.questions ?? []);
+        setError("");
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        setError(e instanceof Error ? e.message : "Could not load questions");
+        setQuestions([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();

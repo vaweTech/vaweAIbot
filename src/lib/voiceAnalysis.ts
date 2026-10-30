@@ -3,6 +3,13 @@ import { calculateInterviewScore, calculateGDOverall, DEFAULT_WEIGHTS } from "@/
 import { analyzeLanguage, languageSummary, wordCount } from "@/lib/languageCheck";
 import type { EvaluationWeights, GrammarError } from "@/types/interview";
 import type { EvaluationStep } from "@/lib/mockAI";
+import {
+  EMPTY_REPETITION,
+  detectRepetition,
+  repetitionAdvice,
+  repetitionPenalty,
+  type RepetitionReport,
+} from "@/lib/repetition";
 
 const FILLERS = ["basically", "actually", "you know", "like", "um", "uh", "sort of", "kind of", "i mean", "right"];
 
@@ -85,6 +92,7 @@ export async function analyzeVoiceAnswer(options: {
   speakingDuration: string;
   wordCount: number;
   fillerWords: number;
+  repetition: RepetitionReport;
   usedRealVoice: boolean;
 }> {
   await delay(900);
@@ -105,8 +113,17 @@ export async function analyzeVoiceAnswer(options: {
 
   const relevance = clamp(40 + (hits / Math.max(total, 1)) * 55 + (words > 25 ? 8 : 0));
 
+  const repetition = words >= 8 ? detectRepetition(text, options.question) : EMPTY_REPETITION;
+  const repeatPenalty = repetitionPenalty(repetition);
+
   const fillerRatio = words > 0 ? fillers / words : 0;
-  const communication = clamp(88 - fillerRatio * 180 - (words < 15 ? 20 : 0) + (language.sentences >= 2 ? 5 : 0));
+  const communication = clamp(
+    88 -
+      fillerRatio * 180 -
+      (words < 15 ? 20 : 0) +
+      (language.sentences >= 2 ? 5 : 0) -
+      repeatPenalty.communication
+  );
 
   const wpm = (words / duration) * 60;
   let fluency = 70;
@@ -115,7 +132,7 @@ export async function analyzeVoiceAnswer(options: {
   else if (wpm > 160 && wpm < 200) fluency = 75;
   else if (words < 10) fluency = 45;
   else fluency = 62;
-  fluency = clamp(fluency - fillers * 3);
+  fluency = clamp(fluency - fillers * 3 - repeatPenalty.fluency);
 
   const unique = new Set(text.toLowerCase().split(/\s+/).filter(Boolean));
   const variety = words > 0 ? unique.size / words : 0;
@@ -146,6 +163,7 @@ export async function analyzeVoiceAnswer(options: {
   if (relevance >= 70) strengths.push("Answer stayed relevant to the question");
   if (words >= 40) strengths.push("Gave enough detail in the response");
   if (fillers <= 2) strengths.push("Limited use of filler words");
+  if (repetition.total === 0 && words >= 40) strengths.push("No repeated words or lines");
   if (vocabulary >= 72) strengths.push("Used a reasonable range of vocabulary");
   if (fluency >= 75) strengths.push("Speaking pace was generally clear");
   if (grammar >= 85) strengths.push("Grammar was largely accurate");
@@ -153,6 +171,7 @@ export async function analyzeVoiceAnswer(options: {
 
   if (words < 25) improvementAreas.push("Give a longer, more complete answer");
   if (fillers >= 3) improvementAreas.push("Reduce filler words (um, like, actually)");
+  improvementAreas.push(...repetitionAdvice(repetition));
   if (relevance < 65) improvementAreas.push("Link your points more directly to the question");
   if (grammar < 75) improvementAreas.push("Improve grammar and sentence structure");
   if (pronouns < 75) improvementAreas.push("Check pronoun forms (I/me, he/him, they/them, their/there/they're)");
@@ -199,6 +218,7 @@ export async function analyzeVoiceAnswer(options: {
     speakingDuration: formatDuration(duration),
     wordCount: words,
     fillerWords: fillers,
+    repetition,
     usedRealVoice: true,
   };
 }

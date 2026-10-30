@@ -102,7 +102,9 @@ export function AnswerMarksPanel({
             <div>
               <h3 className="text-sm font-semibold text-slate-900">{RUBRIC_TITLE[rubric.type]}</h3>
               <p className="mt-0.5 text-xs text-slate-500">
-                Knowledge only — your English is graded separately and does not lower these marks.
+                {rubric.type === "hr"
+                  ? "What you said and how you backed it up. Your English is graded separately."
+                  : "Knowledge only. Your English is graded separately and does not lower these marks."}
               </p>
             </div>
             <p className="text-3xl font-bold text-slate-900">
@@ -146,7 +148,8 @@ export function AnswerMarksPanel({
       {errors.length > 0 && (
         <div className="rounded-3xl border border-rose-200 bg-white p-5 shadow-sm">
           <h3 className="flex items-center gap-1.5 text-sm font-semibold text-rose-800">
-            <AlertTriangle className="h-4 w-4" /> Incorrect statements
+            <AlertTriangle className="h-4 w-4" />{" "}
+            {rubric?.type === "hr" ? "Remarks to avoid" : "Incorrect statements"}
           </h3>
           <ul className="mt-3 space-y-2">
             {errors.map((error) => (

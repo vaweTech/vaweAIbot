@@ -20,8 +20,21 @@ export function useAdminStatus() {
   }, []);
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    let cancelled = false;
+    void adminFetch<AdminStatus>("/api/admin/status")
+      .then((data) => {
+        if (!cancelled) setStatus(data);
+      })
+      .catch(() => {
+        if (!cancelled) setStatus(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return { status, loading, refresh };
 }
@@ -31,7 +44,9 @@ export function SetupNotice({ status }: { status: AdminStatus | null }) {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    setCode(getAdminCode());
+    const stored = getAdminCode();
+    const id = window.setTimeout(() => setCode(stored), 0);
+    return () => window.clearTimeout(id);
   }, []);
 
   if (!status) return null;

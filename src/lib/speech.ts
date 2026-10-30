@@ -103,10 +103,50 @@ export function isSpeechSupported(): boolean {
   return getRecognitionCtor() !== null;
 }
 
-/** Ask browser for microphone access (needed before speech recognition). */
-export async function requestMicPermission(): Promise<boolean> {
+/**
+ * Microphone state as far as the browser will tell us. "prompt" means the
+ * browser will ask the first time; "no-device" means there is no microphone.
+ */
+export type MicPermission = "granted" | "denied" | "prompt" | "no-device" | "unknown";
+
+/**
+ * Reports the microphone permission now and whenever the user changes it in
+ * the browser's site settings. Browsers without the Permissions API report "unknown".
+ */
+export function watchMicPermission(onChange: (state: MicPermission) => void): () => void {
+  let status: PermissionStatus | null = null;
+  let stopped = false;
+  const report = () => {
+    if (!stopped && status) onChange(status.state as MicPermission);
+  };
+
+  if (typeof navigator === "undefined" || !navigator.permissions?.query) {
+    queueMicrotask(() => {
+      if (!stopped) onChange("unknown");
+    });
+  } else {
+    navigator.permissions
+      .query({ name: "microphone" as PermissionName })
+      .then((result) => {
+        status = result;
+        result.addEventListener("change", report);
+        report();
+      })
+      .catch(() => {
+        if (!stopped) onChange("unknown");
+      });
+  }
+
+  return () => {
+    stopped = true;
+    status?.removeEventListener("change", report);
+  };
+}
+
+/** Asks for the microphone and says why it failed, so the page can show the right fix. */
+export async function requestMicAccess(): Promise<MicPermission> {
   if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
-    return isSpeechSupported();
+    return "unknown";
   }
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
@@ -117,10 +157,18 @@ export async function requestMicPermission(): Promise<boolean> {
       },
     });
     stream.getTracks().forEach((t) => t.stop());
-    return true;
-  } catch {
-    return false;
+    return "granted";
+  } catch (error) {
+    const name = error instanceof DOMException ? error.name : "";
+    if (name === "NotFoundError" || name === "OverconstrainedError") return "no-device";
+    return "denied";
   }
+}
+
+/** Ask browser for microphone access (needed before speech recognition). */
+export async function requestMicPermission(): Promise<boolean> {
+  const state = await requestMicAccess();
+  return state === "granted" || (state === "unknown" && isSpeechSupported());
 }
 
 type VoiceSession = {

@@ -4,6 +4,7 @@ import type { AnswerEvaluation, EvaluationMode } from "@/lib/answerEvaluation";
 import type { SessionQuestion } from "@/app/api/questions/session/route";
 import { getAdminCode } from "@/lib/adminClient";
 import type { BankQuestionType } from "@/types/questionBank";
+import type { InterviewResultDraft } from "@/types/interviewResult";
 import type { InterviewTest, TestSummary } from "@/types/interviewTest";
 
 export type { SessionQuestion };
@@ -62,6 +63,17 @@ export async function fetchTest(id: string): Promise<InterviewTest> {
   });
   if (!response.ok) throw new Error(await readError(response));
   return ((await response.json()) as { test: InterviewTest }).test;
+}
+
+/** Saves a finished interview to Firestore and returns its result id. */
+export async function saveInterviewResult(draft: InterviewResultDraft): Promise<string> {
+  const response = await fetch("/api/results", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(draft),
+  });
+  if (!response.ok) throw new Error(await readError(response));
+  return ((await response.json()) as { id: string }).id;
 }
 
 /** Grades an answer on the server against the stored answer key. */

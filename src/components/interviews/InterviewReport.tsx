@@ -1,5 +1,6 @@
 import { CheckCircle2, ChevronDown, Loader2, MinusCircle, Trophy } from "lucide-react";
 import { AnswerFeedback, type AnswerResult } from "@/components/interviews/AnswerFeedback";
+import { summarizeInterview } from "@/lib/interviewSummary";
 import { getScoreLabel } from "@/lib/scoring";
 import { cn } from "@/lib/utils";
 
@@ -9,10 +10,6 @@ export type SessionAnswer = {
   status: "grading" | "done";
   result?: AnswerResult;
 };
-
-function average(values: number[]): number | null {
-  return values.length > 0 ? Math.round(values.reduce((a, b) => a + b, 0) / values.length) : null;
-}
 
 function chipTone(score: number) {
   if (score >= 75) return "bg-emerald-50 text-emerald-700 ring-emerald-200";
@@ -35,31 +32,26 @@ export function InterviewReport({
   questions,
   answers,
   actions,
+  toolbar,
 }: {
   title: string;
   questions: string[];
   /** Indexed like `questions`; missing entries were never answered. */
   answers: (SessionAnswer | undefined)[];
   actions: React.ReactNode;
+  /** Shown under the score header, e.g. save status and download. */
+  toolbar?: React.ReactNode;
 }) {
-  const graded = answers.filter((a): a is SessionAnswer & { result: AnswerResult } => Boolean(a?.result));
   const pending = answers.filter((a) => a?.status === "grading").length;
-  const answeredCount = answers.filter(Boolean).length;
-
-  const overall = average(graded.map((a) => a.result.scores.overall));
-  const knowledge = average(graded.map((a) => a.result.scores.technicalKnowledge));
-  const english = average(graded.map((a) => Math.round((a.result.scores.grammar + a.result.scores.pronouns) / 2)));
-  const fluency = average(graded.map((a) => a.result.scores.fluency));
-
-  // What came up most often across answers is what to practise first.
-  const counts = new Map<string, number>();
-  for (const answer of graded) {
-    for (const area of answer.result.improvementAreas) {
-      if (area.startsWith("Essential point") || area.startsWith("Also mention") || area.startsWith("Incorrect:")) continue;
-      counts.set(area, (counts.get(area) ?? 0) + 1);
-    }
-  }
-  const focus = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([area]) => area);
+  const { overall, knowledge, answerQuality, english, fluency, focus, repeats, answered: answeredCount } =
+    summarizeInterview(answers);
+  // An HR-only interview has no technical score, and vice versa.
+  const stats: [string, number | null][] = [
+    ...(knowledge !== null || answerQuality === null ? [["Technical", knowledge] as [string, number | null]] : []),
+    ...(answerQuality !== null ? [["Answer quality", answerQuality] as [string, number | null]] : []),
+    ["English", english],
+    ["Fluency", fluency],
+  ];
 
   return (
     <div className="space-y-5">
@@ -72,6 +64,7 @@ export function InterviewReport({
             <h2 className="mt-1 text-2xl font-bold sm:text-3xl">{title}</h2>
             <p className="mt-1 text-sm text-indigo-100">
               {answeredCount} of {questions.length} questions answered
+              {repeats ? ` · ${repeats} repetition ${repeats === 1 ? "mistake" : "mistakes"}` : ""}
               {pending > 0 && ` · grading ${pending} more…`}
             </p>
           </div>
@@ -83,12 +76,14 @@ export function InterviewReport({
             {overall !== null && <p className="text-sm font-medium text-indigo-100">{getScoreLabel(overall)}</p>}
           </div>
         </div>
-        <div className="mt-6 grid grid-cols-3 gap-3">
-          <Stat label="Knowledge" value={knowledge} />
-          <Stat label="English" value={english} />
-          <Stat label="Fluency" value={fluency} />
+        <div className={cn("mt-6 grid gap-3", stats.length === 4 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3")}>
+          {stats.map(([label, value]) => (
+            <Stat key={label} label={label} value={value} />
+          ))}
         </div>
       </div>
+
+      {toolbar}
 
       {focus.length > 0 && (
         <div className="rounded-3xl border border-amber-200 bg-amber-50/60 p-5">

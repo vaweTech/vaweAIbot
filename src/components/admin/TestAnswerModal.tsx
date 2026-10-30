@@ -6,13 +6,14 @@ import { AudioWaveform } from "@/components/interviews/AudioWaveform";
 import { AnswerMarksPanel } from "@/components/interviews/AnswerMarksPanel";
 import { KeyPointCoverage } from "@/components/interviews/KeyPointCoverage";
 import { LanguageAnalysisPanel } from "@/components/interviews/LanguageAnalysisPanel";
+import { MicSettingsButton } from "@/components/interviews/MicSettingsButton";
 import { ScoreCard } from "@/components/interviews/ScoreCard";
 import type { AnswerEvaluation } from "@/lib/answerEvaluation";
 import { scoreAnswer } from "@/lib/sessionClient";
 import {
   cleanupTranscript,
   isSpeechSupported,
-  requestMicPermission,
+  requestMicAccess,
   startVoiceCapture,
   type SpeechLang,
 } from "@/lib/speech";
@@ -40,6 +41,7 @@ export function TestAnswerModal({
   const [transcript, setTranscript] = useState("");
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState("");
+  const [micDenied, setMicDenied] = useState(false);
   const [lang, setLang] = useState<SpeechLang>("en-IN");
   const [result, setResult] = useState<AnswerEvaluation | null>(null);
   const sessionRef = useRef<VoiceSession | null>(null);
@@ -80,9 +82,14 @@ export function TestAnswerModal({
       setError("Voice-to-text needs Chrome or Edge.");
       return;
     }
-    const allowed = await requestMicPermission();
-    if (!allowed) {
-      setError("Microphone permission denied. Allow the mic, then try again.");
+    const access = await requestMicAccess();
+    setMicDenied(access === "denied");
+    if (access === "denied" || access === "no-device") {
+      setError(
+        access === "denied"
+          ? "Microphone is blocked for this site. Allow it, then try again."
+          : "No microphone found. Connect one and try again."
+      );
       return;
     }
 
@@ -291,9 +298,10 @@ export function TestAnswerModal({
         )}
 
         {error && (
-          <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
-            {error}
-          </p>
+          <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+            <p>{error}</p>
+            {micDenied && <MicSettingsButton onRetry={() => void startRecording()} className="mt-2" />}
+          </div>
         )}
 
         {phase === "result" && result && (

@@ -12,8 +12,9 @@
  * 2. One structured examiner call grades content against the question's
  *    rubric (see answerJudge), with a second opinion only when uncertain.
  * 3. Embedding similarity runs only if the examiner is unavailable.
- * Technical knowledge comes from the rubric alone; grammar, pronouns and
- * delivery are separate scores and never reduce it.
+ * Answer marks come from the rubric alone (technical knowledge for technical
+ * questions, answer quality for HR); grammar, pronouns and delivery are
+ * separate scores and never reduce them.
  */
 
 import {
@@ -29,7 +30,7 @@ import {
   mergeJudgedMistakes,
   wordCount,
 } from "@/lib/languageCheck";
-import { scoreRubric, type RubricScore } from "@/lib/rubric";
+import { OVERALL_WEIGHTS, scoreRubric, type RubricScore } from "@/lib/rubric";
 import { calculateGDOverall, calculateInterviewScore, DEFAULT_WEIGHTS } from "@/lib/scoring";
 import {
   emptySemantic,
@@ -38,7 +39,14 @@ import {
   type SemanticResult,
 } from "@/lib/semanticScoring";
 import { countFillers, formatDuration, type GrammarAnalysisResult } from "@/lib/voiceAnalysis";
-import type { AnswerKey, QuestionSummary } from "@/types/questionBank";
+import {
+  EMPTY_REPETITION,
+  detectRepetition,
+  repetitionAdvice,
+  repetitionPenalty,
+  type RepetitionReport,
+} from "@/lib/repetition";
+import type { AnswerKey, BankQuestionType, QuestionSummary } from "@/types/questionBank";
 
 export type EvaluationMode = "interview" | "gd";
 
@@ -49,20 +57,6 @@ const OFF_TOPIC_CAP = 30;
  * mentioned. The examiner's rubric handles this itself.
  */
 const MISSED_ESSENTIAL_CAP = 60;
-/**
- * Overall weights when the examiner graded the answer. Its rubric already
- * covers relevance, so answer marks are 60% and English and delivery 40%:
- * fluent English cannot rescue a wrong answer, and weak English cannot sink a
- * right one.
- */
-const RUBRIC_WEIGHTS = {
-  technicalKnowledge: 60,
-  relevance: 0,
-  communication: 10,
-  grammar: 10,
-  fluency: 10,
-  vocabulary: 10,
-};
 /** Below this there is nothing meaningful to grade, so no API is called. */
 const MIN_GRADABLE_WORDS = 8;
 
@@ -84,8 +78,11 @@ export type EvaluationReview = {
 export type AnswerEvaluation = {
   questionId: string;
   question: string;
+  /** Decides what the content score means: technical knowledge, or HR answer quality. */
+  questionType: BankQuestionType;
   mode: EvaluationMode;
   scores: {
+    /** Answer marks as 0-100. For HR questions this is answer quality, not technical knowledge. */
     technicalKnowledge: number;
     relevance: number;
     communication: number;
@@ -108,6 +105,7 @@ export type AnswerEvaluation = {
   speakingDuration: string;
   wordCount: number;
   fillerWords: number;
+  repetition: RepetitionReport;
   /** Shown to the student after grading so they can compare. */
   modelAnswer: string;
   followUpQuestion: string;
@@ -183,9 +181,18 @@ export async function evaluateAnswer(options: {
   const technicalKnowledge = rubric ? rubric.percent : semantic.contentScore;
   const relevance = semantic.answerSimilarity;
 
+  // A recognition loop is already flagged as unclear; it is not the student repeating themselves.
+  const repetition =
+    localIssue === null ? detectRepetition(text, summary.question) : EMPTY_REPETITION;
+  const repeatPenalty = repetitionPenalty(repetition);
+
   const fillerRatio = words > 0 ? fillers / words : 0;
   const communication = clamp(
-    88 - fillerRatio * 180 - (words < 15 ? 20 : 0) + (language.sentences >= 2 ? 5 : 0)
+    88 -
+      fillerRatio * 180 -
+      (words < 15 ? 20 : 0) +
+      (language.sentences >= 2 ? 5 : 0) -
+      repeatPenalty.communication
   );
 
   const wpm = (words / duration) * 60;
@@ -195,7 +202,7 @@ export async function evaluateAnswer(options: {
   else if (wpm >= 70 && wpm < 90) fluency = 78;
   else if (wpm > 160 && wpm < 200) fluency = 75;
   else fluency = 62;
-  fluency = clamp(fluency - fillers * 3);
+  fluency = clamp(fluency - fillers * 3 - repeatPenalty.fluency);
 
   const unique = new Set(text.toLowerCase().split(/\s+/).filter(Boolean));
   const variety = words > 0 ? unique.size / words : 0;
@@ -242,7 +249,7 @@ export async function evaluateAnswer(options: {
             fluency,
             vocabulary,
           },
-          rubric ? RUBRIC_WEIGHTS : DEFAULT_WEIGHTS
+          rubric ? OVERALL_WEIGHTS[summary.type] : DEFAULT_WEIGHTS
         );
 
   // Similarity cannot tell a weak answer from a related one, so without the
@@ -286,14 +293,15 @@ export async function evaluateAnswer(options: {
   if (offTopic) {
     improvementAreas.push("This answer did not address the question — re-read it and try again");
   }
+  const isHr = summary.type === "hr";
   for (const error of judge?.factualErrors.slice(0, 2) ?? []) {
-    improvementAreas.push(`Incorrect: "${error.quote}" — ${error.issue}`);
+    improvementAreas.push(`${isHr ? "Avoid" : "Incorrect"}: "${error.quote}" — ${error.issue}`);
   }
   if (rubric) {
     const reasoning = rubric.items.find((item) => item.key === "reasoning");
     if (reasoning && reasoning.awarded < reasoning.marks / 2 && !offTopic) {
       improvementAreas.push(
-        summary.type === "hr"
+        isHr
           ? "Add a real example: the situation, what you did and the result"
           : "Explain why or how, and give an example — not just the definition"
       );
@@ -309,16 +317,21 @@ export async function evaluateAnswer(options: {
   if (rubric) {
     const correctness = rubric.items.find((item) => item.key === "correctness");
     if (correctness && judge?.factualErrors.length === 0 && correctness.awarded >= correctness.marks * 0.75) {
-      strengths.push("What you said was accurate");
+      strengths.push(isHr ? "Answered the question directly and genuinely" : "What you said was accurate");
     }
     const reasoning = rubric.items.find((item) => item.key === "reasoning");
     if (reasoning && reasoning.awarded >= reasoning.marks * 0.75) {
-      strengths.push("Backed the answer with reasoning or examples");
+      strengths.push(isHr ? "Backed it up with a real example and its result" : "Backed the answer with reasoning or examples");
+    }
+    const clarity = rubric.items.find((item) => item.key === "clarity");
+    if (isHr && clarity && clarity.awarded < clarity.marks / 2) {
+      improvementAreas.push("Structure it: a one-line answer, a short example, then what you learned");
     }
   } else if (semantic.answerSimilarity >= 60 && semantic.contentScore >= 50) {
     strengths.push("Answer matched the expected explanation closely");
   }
   if (fillers <= 2 && words >= 20) strengths.push("Limited use of filler words");
+  if (repetition.total === 0 && words >= 40) strengths.push("No repeated words or lines");
   if (grammar >= 85) strengths.push("Grammar was largely accurate");
   if (pronouns >= 85 && language.pronounUses > 0) strengths.push("Pronouns were used correctly");
   if (fluency >= 80) strengths.push("Speaking pace was clear and steady");
@@ -335,6 +348,7 @@ export async function evaluateAnswer(options: {
     improvementAreas.push("Give a longer, more complete answer");
   }
   if (fillers >= 3) improvementAreas.push("Reduce filler words (um, like, actually)");
+  improvementAreas.push(...repetitionAdvice(repetition));
   // A few words say nothing reliable about someone's grammar.
   if (transcriptIssue !== "too-short") {
     if (grammar < 75) improvementAreas.push("Improve grammar and sentence structure");
@@ -347,7 +361,13 @@ export async function evaluateAnswer(options: {
   }
 
   if (strengths.length === 0) strengths.push("Attempted the question");
-  if (improvementAreas.length === 0) improvementAreas.push("Add one concrete example next time");
+  if (improvementAreas.length === 0) {
+    improvementAreas.push(
+      rubric && rubric.total >= 8
+        ? "Keep this level: practise saying it confidently in 60–90 seconds"
+        : "Add one concrete example next time"
+    );
+  }
 
   const coverageSentence =
     `You covered ${semantic.coveredCount} of ${semantic.keyPoints.length} expected points` +
@@ -363,7 +383,9 @@ export async function evaluateAnswer(options: {
     aiSummary =
       `Answer marks: ${rubric.total}/10. ${coverageSentence}. ` +
       (judge && judge.factualErrors.length > 0
-        ? `${judge.factualErrors.length === 1 ? "One statement was" : `${judge.factualErrors.length} statements were`} technically incorrect. `
+        ? isHr
+          ? `${judge.factualErrors.length === 1 ? "One remark" : `${judge.factualErrors.length} remarks`} could worry an interviewer. `
+          : `${judge.factualErrors.length === 1 ? "One statement was" : `${judge.factualErrors.length} statements were`} technically incorrect. `
         : "") +
       `Overall score is ${overall}. ` +
       languageSummary(language) +
@@ -383,6 +405,7 @@ export async function evaluateAnswer(options: {
   return {
     questionId: summary.id,
     question: summary.question,
+    questionType: summary.type,
     mode,
     scores: {
       technicalKnowledge,
@@ -428,6 +451,7 @@ export async function evaluateAnswer(options: {
     speakingDuration: formatDuration(duration),
     wordCount: words,
     fillerWords: fillers,
+    repetition,
     modelAnswer: answerKey.modelAnswer,
     followUpQuestion: summary.followUpQuestion,
     rubric,

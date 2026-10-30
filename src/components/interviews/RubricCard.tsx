@@ -1,6 +1,11 @@
 import { Scale } from "lucide-react";
-import { RUBRICS } from "@/lib/rubric";
+import { answerMarksShare, RUBRICS } from "@/lib/rubric";
 import type { TestQuestionType } from "@/types/interviewTest";
+
+function overallLine(type: "technical" | "hr") {
+  const share = answerMarksShare(type);
+  return `${share}% answer marks + ${100 - share}% ${type === "hr" ? "communication & English" : "English & delivery"}`;
+}
 
 /** Explains how answers will be marked, before the interview starts. */
 export function RubricCard({ questionType }: { questionType: TestQuestionType }) {
@@ -50,12 +55,20 @@ export function RubricCard({ questionType }: { questionType: TestQuestionType })
         </tbody>
       </table>
 
-      <div className="mt-3 rounded-2xl bg-slate-50 p-3 text-[11px] leading-relaxed text-slate-600">
-        <p>
-          <span className="font-semibold text-slate-800">Overall score</span> = 60% answer marks +
-          40% English &amp; delivery.
-        </p>
-        <p className="mt-1">Grammar mistakes never reduce your knowledge marks.</p>
+      <div className="mt-3 space-y-1 rounded-2xl bg-slate-50 p-3 text-[11px] leading-relaxed text-slate-600">
+        {columns.map((type) => (
+          <p key={type}>
+            <span className="font-semibold text-slate-800">
+              Overall{columns.length > 1 ? ` (${type === "hr" ? "HR" : "Technical"})` : ""}
+            </span>{" "}
+            = {overallLine(type)}.
+          </p>
+        ))}
+        {questionType === "hr" ? (
+          <p>No technical score: HR answers are judged on relevance, real examples (STAR) and structure.</p>
+        ) : (
+          <p>Grammar mistakes never reduce your answer marks.</p>
+        )}
       </div>
     </div>
   );

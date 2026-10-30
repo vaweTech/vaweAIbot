@@ -1,16 +1,21 @@
 import { AnswerMarksPanel } from "@/components/interviews/AnswerMarksPanel";
 import { KeyPointCoverage } from "@/components/interviews/KeyPointCoverage";
 import { LanguageAnalysisPanel } from "@/components/interviews/LanguageAnalysisPanel";
+import { RepetitionPanel } from "@/components/interviews/RepetitionPanel";
 import { ScoreCard } from "@/components/interviews/ScoreCard";
 import type { AnswerEvaluation } from "@/lib/answerEvaluation";
+import { CONTENT_SCORE_LABEL } from "@/lib/rubric";
+import type { RepetitionReport } from "@/lib/repetition";
 import type { SemanticResult } from "@/lib/semanticScoring";
 import type { analyzeVoiceAnswer } from "@/lib/voiceAnalysis";
 
 /** Both grading paths produce this; only the bank path fills in the AI fields. */
-export type AnswerResult = Awaited<ReturnType<typeof analyzeVoiceAnswer>> & {
+export type AnswerResult = Omit<Awaited<ReturnType<typeof analyzeVoiceAnswer>>, "repetition"> & {
+  /** Missing on results saved before repetition was checked. */
+  repetition?: RepetitionReport;
   semantic?: SemanticResult;
   modelAnswer?: string;
-} & Partial<Pick<AnswerEvaluation, "rubric" | "factualErrors" | "review" | "transcriptIssue">>;
+} & Partial<Pick<AnswerEvaluation, "rubric" | "factualErrors" | "review" | "transcriptIssue" | "questionType">>;
 
 /** Full feedback for one answer, shown in the end-of-interview report. */
 export function AnswerFeedback({ result, transcript }: { result: AnswerResult; transcript: string }) {
@@ -20,14 +25,18 @@ export function AnswerFeedback({ result, transcript }: { result: AnswerResult; t
         <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Your answer</p>
         <p className="mt-1.5 text-sm leading-relaxed text-slate-700">{transcript}</p>
         <p className="mt-2 text-[11px] text-slate-400">
-          {result.wordCount} words · {result.fillerWords} fillers · {result.speakingDuration}
+          {result.wordCount} words · {result.fillerWords} fillers
+          {result.repetition ? ` · ${result.repetition.total} repeats` : ""} · {result.speakingDuration}
         </p>
       </div>
 
       {result.aiSummary && <p className="text-sm leading-relaxed text-slate-600">{result.aiSummary}</p>}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <ScoreCard label="Technical" score={result.scores.technicalKnowledge} />
+        <ScoreCard
+          label={CONTENT_SCORE_LABEL[result.questionType ?? "technical"]}
+          score={result.scores.technicalKnowledge}
+        />
         <ScoreCard label="Relevance" score={result.scores.relevance} />
         <ScoreCard label="Communication" score={result.scores.communication} />
         <ScoreCard label="Grammar" score={result.scores.grammar} />
@@ -50,6 +59,7 @@ export function AnswerFeedback({ result, transcript }: { result: AnswerResult; t
       />
       {result.semantic && <KeyPointCoverage semantic={result.semantic} modelAnswer={result.modelAnswer} />}
       <LanguageAnalysisPanel analysis={result.grammarAnalysis} />
+      <RepetitionPanel report={result.repetition} />
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="rounded-2xl border border-emerald-100 bg-white p-4">

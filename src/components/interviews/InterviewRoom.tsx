@@ -147,7 +147,10 @@ export function InterviewRoom({
   onStopAnswer,
   onReplay,
   onLeave,
+  onLookAwayCount,
 }: {
+  /** Reports the running count of look-away warnings, e.g. to save with the result. */
+  onLookAwayCount?: (count: number) => void;
   /** Seconds until recording starts by itself; null when not counting down. */
   prepCountdown: number | null;
   onCancelPrep: () => void;
@@ -175,6 +178,10 @@ export function InterviewRoom({
   const face = useFaceMonitor(videoRef, cameraOn);
   const faceWarning = cameraOn && !NEUTRAL_FACE_STATUSES.includes(face.status);
   const lookingAway = face.status === "looking-away";
+
+  useEffect(() => {
+    if (face.lookAwayCount > 0) onLookAwayCount?.(face.lookAwayCount);
+  }, [face.lookAwayCount, onLookAwayCount]);
 
   useEffect(() => {
     const timer = setInterval(() => setSessionSeconds((s) => s + 1), 1000);

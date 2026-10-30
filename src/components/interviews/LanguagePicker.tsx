@@ -2,13 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Check, Mic, Square, Volume2 } from "lucide-react";
+import { MicSettingsButton } from "@/components/interviews/MicSettingsButton";
 import { cn } from "@/lib/utils";
 import {
   cleanupTranscript,
   getStyleVoice,
   isSpeechSupported,
   recognitionLangFor,
-  requestMicPermission,
+  requestMicAccess,
   speakAs,
   startVoiceCapture,
   type VoiceStyle,
@@ -63,6 +64,7 @@ export function LanguagePicker({
   const [testing, setTesting] = useState(false);
   const [heard, setHeard] = useState("");
   const [testError, setTestError] = useState("");
+  const [micDenied, setMicDenied] = useState(false);
   const sessionRef = useRef<VoiceSession | null>(null);
 
   useEffect(() => {
@@ -98,8 +100,14 @@ export function LanguagePicker({
       setTestError("Voice-to-text needs Chrome or Edge.");
       return;
     }
-    if (!(await requestMicPermission())) {
-      setTestError("Microphone permission denied. Allow the mic and try again.");
+    const access = await requestMicAccess();
+    setMicDenied(access === "denied");
+    if (access === "denied" || access === "no-device") {
+      setTestError(
+        access === "denied"
+          ? "Microphone is blocked for this site. Allow it, then test again."
+          : "No microphone found. Connect one and test again."
+      );
       return;
     }
     window.speechSynthesis?.cancel();
@@ -212,6 +220,9 @@ export function LanguagePicker({
           </p>
         )}
         {testError && <p className="mt-2 text-xs text-rose-600">{testError}</p>}
+        {micDenied && (
+          <MicSettingsButton onRetry={() => void startMicTest()} className="mt-2" />
+        )}
       </div>
     </div>
   );

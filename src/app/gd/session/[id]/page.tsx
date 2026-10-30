@@ -20,7 +20,9 @@ export default function GDSessionPage({
   const session = getGDSessionById(id);
 
   const [loading, setLoading] = useState(true);
-  const [participants, setParticipants] = useState<GDParticipant[]>([]);
+  const [participants, setParticipants] = useState<GDParticipant[]>(() =>
+    session ? session.participants.map((p) => ({ ...p })) : []
+  );
   const [transcript, setTranscript] = useState<GDTranscriptEntry[]>([]);
   const [elapsed, setElapsed] = useState(0);
   const [showEndModal, setShowEndModal] = useState(false);
@@ -29,13 +31,6 @@ export default function GDSessionPage({
     const t = setTimeout(() => setLoading(false), 400);
     return () => clearTimeout(t);
   }, []);
-
-  useEffect(() => {
-    if (!session) return;
-    setParticipants(session.participants.map((p) => ({ ...p })));
-    setTranscript([]);
-    setElapsed(0);
-  }, [session]);
 
   useEffect(() => {
     if (!session || loading) return;

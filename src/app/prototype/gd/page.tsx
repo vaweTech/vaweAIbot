@@ -25,6 +25,10 @@ type Topic = { id: string | null; text: string; botLines: string[] };
 
 const FALLBACK_TOPIC: Topic = { id: null, text: PROTOTYPE_GD_TOPIC, botLines: [] };
 
+function elapsedSeconds(startedAt: number) {
+  return Math.max(1, Math.round((Date.now() - startedAt) / 1000));
+}
+
 /** Both grading paths normalise to this shape. */
 type GDResult = Awaited<ReturnType<typeof analyzeGDContribution>> & {
   semantic?: SemanticResult;
@@ -52,7 +56,8 @@ export default function PrototypeGDPage() {
   const startedRef = useRef(false);
 
   useEffect(() => {
-    setMicOk(isSpeechSupported());
+    const supported = isSpeechSupported();
+    const id = window.setTimeout(() => setMicOk(supported), 0);
     loadVoices().then(async () => {
       const labels: Record<string, string> = {};
       for (const bot of PROTOTYPE_AI_BOTS) {
@@ -61,6 +66,7 @@ export default function PrototypeGDPage() {
       labels.moderator = await getVoiceLabel("moderator");
       setVoiceNames(labels);
     });
+    return () => window.clearTimeout(id);
   }, []);
 
   useEffect(() => {
@@ -203,7 +209,7 @@ export default function PrototypeGDPage() {
     }
     if (!text) text = liveText.trim();
 
-    const spokeFor = Math.max(1, Math.round((Date.now() - turnStartRef.current) / 1000));
+    const spokeFor = elapsedSeconds(turnStartRef.current);
     setMySpeechSeconds((s) => s + spokeFor);
 
     if (!text) {

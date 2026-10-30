@@ -9,6 +9,7 @@
  * weak English but correct knowledge is not marked down on knowledge.
  */
 
+import type { EvaluationWeights } from "@/types/interview";
 import type { BankQuestionType } from "@/types/questionBank";
 
 export type RubricDimension = "correctness" | "concepts" | "reasoning" | "clarity";
@@ -57,30 +58,30 @@ export const RUBRICS: Record<BankQuestionType, RubricCriterion[]> = {
   hr: [
     {
       key: "correctness",
-      label: "Relevance & honesty",
+      label: "Relevance & self-awareness",
       marks: 2,
       guidance:
-        "Does the answer respond to what was asked, stay consistent, and sound genuine and professional? Deduct for contradictions or claims that undermine the answer.",
+        "Does the answer respond directly to what was asked, stay consistent, and sound honest, self-aware and professional? There is no technical right answer: never judge technical accuracy. Deduct for dodging the question, contradictions, or red flags an employer would worry about (blaming others, negativity about past teams, dishonesty).",
     },
     {
       key: "concepts",
       label: "Expected points",
-      marks: 4,
+      marks: 3,
       guidance: "Scored from the key points.",
     },
     {
       key: "reasoning",
-      label: "Examples & impact",
+      label: "Examples & impact (STAR)",
       marks: 3,
       guidance:
-        "Does the student back claims with a specific situation, what they did, and the result (STAR style), rather than generic statements?",
+        "Does the student back claims with a specific real situation, the task, what they personally did, and the result or what they learned (STAR), rather than generic statements like 'I am hardworking'?",
     },
     {
       key: "clarity",
-      label: "Structure",
-      marks: 1,
+      label: "Structure & attitude",
+      marks: 2,
       guidance:
-        "Is the answer organised with a clear start and finish? Judge structure only, never grammar, vocabulary or accent.",
+        "Is the answer organised with a clear start and finish, confident, and positive in tone? Judge structure and attitude only, never grammar, vocabulary or accent.",
     },
   ],
   gd: [
@@ -112,6 +113,32 @@ export const RUBRICS: Record<BankQuestionType, RubricCriterion[]> = {
         "Is the argument organised and convincing? Judge structure only, never grammar, vocabulary or accent.",
     },
   ],
+};
+
+/**
+ * How the overall score is built once the examiner has marked an answer.
+ * Answer marks carry the most weight so fluent English cannot rescue a wrong
+ * answer. HR answers have no technical right answer and are about how the
+ * student comes across, so communication counts for more.
+ */
+export const OVERALL_WEIGHTS: Record<BankQuestionType, EvaluationWeights> = {
+  technical: { technicalKnowledge: 60, relevance: 0, communication: 10, grammar: 10, fluency: 10, vocabulary: 10 },
+  hr: { technicalKnowledge: 50, relevance: 0, communication: 20, grammar: 10, fluency: 10, vocabulary: 10 },
+  gd: { technicalKnowledge: 60, relevance: 0, communication: 10, grammar: 10, fluency: 10, vocabulary: 10 },
+};
+
+/** Percent of the overall score that comes from the answer marks. */
+export function answerMarksShare(type: BankQuestionType): number {
+  const w = OVERALL_WEIGHTS[type];
+  const total = w.technicalKnowledge + w.relevance + w.communication + w.grammar + w.fluency + w.vocabulary;
+  return Math.round((w.technicalKnowledge / total) * 100);
+}
+
+/** What the answer-marks score is called for each type; HR answers have no "technical" score. */
+export const CONTENT_SCORE_LABEL: Record<BankQuestionType, string> = {
+  technical: "Technical",
+  hr: "Answer quality",
+  gd: "Content",
 };
 
 export type RubricItem = { key: RubricDimension; label: string; marks: number; awarded: number };

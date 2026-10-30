@@ -201,6 +201,15 @@ const TYPE_LABEL: Record<BankQuestionType, string> = {
   gd: "Group discussion topic",
 };
 
+/** Extra instructions where a type is graded differently from the default technical view. */
+const TYPE_INSTRUCTIONS: Partial<Record<BankQuestionType, string>> = {
+  hr: `HOW TO GRADE THIS HR ANSWER:
+- There is no technical right answer. Never judge or mention technical accuracy, and do not expect technical terms.
+- Judge what an HR interviewer looks for: a direct answer to the question, honesty and self-awareness, a specific real example (situation, task, action, result), a positive professional attitude, and a clear structure.
+- Personal facts the student states about themselves (their name, college, projects, hobbies) are their own and cannot be "wrong".
+- In factualErrors, list only remarks an employer would see as a red flag (blaming others, negativity about past teams or teachers, dishonesty, arrogance) or statements that contradict each other, with the issue phrased as advice.`,
+};
+
 function buildPrompt(
   question: string,
   questionType: BankQuestionType,
@@ -227,7 +236,7 @@ function buildPrompt(
     : "";
 
   return `QUESTION TYPE: ${TYPE_LABEL[questionType]}
-
+${TYPE_INSTRUCTIONS[questionType] ? `\n${TYPE_INSTRUCTIONS[questionType]}\n` : ""}
 QUESTION:
 ${question}
 

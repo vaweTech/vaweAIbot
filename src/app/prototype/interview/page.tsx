@@ -13,12 +13,17 @@ import { InterviewAgenda } from "@/components/interviews/InterviewAgenda";
 import { LanguagePicker, voiceStyleLabel } from "@/components/interviews/LanguagePicker";
 import { InterviewTips } from "@/components/interviews/InterviewTips";
 import { RubricCard } from "@/components/interviews/RubricCard";
+import { MicPermissionNotice, micBlocked, type MicStatus } from "@/components/interviews/MicPermissionNotice";
 import { cn } from "@/lib/utils";
 import {
   fetchPublishedTests,
   fetchTest,
+  saveInterviewResult,
   scoreAnswer,
 } from "@/lib/sessionClient";
+import { summarizeInterview } from "@/lib/interviewSummary";
+import { MIN_NAME_LENGTH, type InterviewResultDraft } from "@/types/interviewResult";
+import type { BankQuestionType } from "@/types/questionBank";
 import { TEST_TYPE_LABELS, type InterviewTest, type TestSummary } from "@/types/interviewTest";
 import { analyzeVoiceAnswer } from "@/lib/voiceAnalysis";
 import {
@@ -26,7 +31,8 @@ import {
   isSpeechSupported,
   loadVoices,
   recognitionLangFor,
-  requestMicPermission,
+  requestMicAccess,
+  watchMicPermission,
   speakAs,
   startVoiceCapture,
   type VoiceStyle,
@@ -37,14 +43,21 @@ import {
   PROTOTYPE_INTERVIEW_QUESTIONS,
 } from "@/data/prototype";
 import {
+  AlertCircle,
   ArrowLeft,
   Bot,
   CheckCircle2,
   ChevronRight,
   Clock3,
+  CloudUpload,
+  Download,
   Flag,
   ListChecks,
+  Loader2,
+  Mic,
+  MicOff,
   Settings2,
+  UserRound,
   Volume2,
 } from "lucide-react";
    
@@ -52,7 +65,7 @@ type Phase = "intro" | "question" | "listening" | "review" | "done";
 type VoiceSession = NonNullable<ReturnType<typeof startVoiceCapture>>;
 
 /** A bank question carries an id, so it can be graded against its answer key. */
-type SessionItem = { id: string | null; text: string };
+type SessionItem = { id: string | null; text: string; type?: BankQuestionType };
 
 const SESSION_LENGTH = 5;
 /** Below this many words an answer cannot be graded fairly, so the student is warned before submitting. */
@@ -68,7 +81,8 @@ async function gradeAnswer(item: SessionItem, transcript: string, durationSecond
       // Losing the answer would be worse than a rougher offline grade.
     }
   }
-  return analyzeVoiceAnswer({ question: item.text, transcript, durationSeconds });
+  const offline = await analyzeVoiceAnswer({ question: item.text, transcript, durationSeconds });
+  return { ...offline, questionType: item.type };
 }
 /** What the interviewer says between questions, so it sounds like a conversation. */
 const TRANSITIONS = [
@@ -79,6 +93,13 @@ const TRANSITIONS = [
 ];
 /** Rough time to hear, answer and review one question, for the estimate shown before starting. */
 const MINUTES_PER_QUESTION = 2;
+/** Remembers the student's name between interviews on this device. */
+const NAME_STORAGE_KEY = "interview.candidateName";
+
+type SaveState =
+  | { status: "idle" | "saving" | "skipped" }
+  | { status: "saved"; id: string }
+  | { status: "error"; error: string };
 
 const FALLBACK_QUESTIONS: SessionItem[] = PROTOTYPE_INTERVIEW_QUESTIONS.map((text) => ({
   id: null,
@@ -106,7 +127,8 @@ export default function PrototypeInterviewPage({
   const [liveText, setLiveText] = useState("");
   const [transcript, setTranscript] = useState("");
   const [elapsed, setElapsed] = useState(0);
-  const [micOk, setMicOk] = useState(false);
+  const [micStatus, setMicStatus] = useState<MicStatus>("checking");
+  const [requestingMic, setRequestingMic] = useState(false);
   const [micError, setMicError] = useState("");
   const [voiceStyle, setVoiceStyle] = useState<VoiceStyle>("south-indian-male");
   const [showVoiceSettings, setShowVoiceSettings] = useState(false);
@@ -130,12 +152,34 @@ export default function PrototypeInterviewPage({
   const sessionRef = useRef<VoiceSession | null>(null);
   const elapsedRef = useRef(0);
   const micGrantedRef = useRef(false);
+  const [candidateName, setCandidateName] = useState("");
+  const [lookAwayCount, setLookAwayCount] = useState(0);
+  const [saveState, setSaveState] = useState<SaveState>({ status: "idle" });
+  const [downloading, setDownloading] = useState(false);
+  const startedAtRef = useRef("");
+  const finishedAtRef = useRef("");
 
   const question = questions[qIndex]?.text ?? "";
 
   useEffect(() => {
-    setMicOk(isSpeechSupported());
+    const supported = isSpeechSupported();
+    const savedName = window.localStorage.getItem(NAME_STORAGE_KEY) ?? "";
+    const id = window.setTimeout(() => {
+      if (!supported) setMicStatus("unsupported");
+      setCandidateName(savedName);
+    }, 0);
+    // Follows the browser setting live, so fixing it in site settings clears the warning.
+    const stopWatching = supported
+      ? watchMicPermission((state) => {
+          if (state === "granted") micGrantedRef.current = true;
+          setMicStatus(state);
+        })
+      : () => {};
     loadVoices();
+    return () => {
+      window.clearTimeout(id);
+      stopWatching();
+    };
   }, []);
 
   useEffect(() => {
@@ -154,7 +198,7 @@ export default function PrototypeInterviewPage({
           const test = await fetchTest(selectedTestId);
           if (cancelled) return;
           setActiveTest(test);
-          setQuestions(test.questions.map((q) => ({ id: q.id, text: q.question })));
+          setQuestions(test.questions.map((q) => ({ id: q.id, text: q.question, type: q.type })));
           setUsingBank(true);
           setTestError("");
         } catch (error) {
@@ -207,19 +251,26 @@ export default function PrototypeInterviewPage({
 
   const enableMic = async () => {
     setMicError("");
-    const ok = await requestMicPermission();
-    if (!ok) {
-      setMicError("Microphone permission denied. Allow mic in Chrome/Edge, then try again.");
-      setMicOk(false);
+    if (!isSpeechSupported()) {
+      setMicStatus("unsupported");
+      setMicError("Voice-to-text needs Chrome or Edge.");
       return false;
     }
-    if (!isSpeechSupported()) {
-      setMicError("Voice-to-text needs Chrome or Edge.");
-      setMicOk(false);
+    setRequestingMic(true);
+    const state = await requestMicAccess();
+    setRequestingMic(false);
+    // "unknown" means the browser hides the answer; speech recognition will ask itself.
+    const usable = state === "granted" || state === "unknown";
+    setMicStatus(state === "unknown" ? "granted" : state);
+    if (!usable) {
+      setMicError(
+        state === "no-device"
+          ? "No microphone found. Connect one and press Check again."
+          : "Microphone is blocked. Allow it from the address bar, then press Check again."
+      );
       return false;
     }
     micGrantedRef.current = true;
-    setMicOk(true);
     return true;
   };
 
@@ -265,6 +316,7 @@ export default function PrototypeInterviewPage({
     window.speechSynthesis?.cancel();
     void sessionRef.current?.stop();
     sessionRef.current = null;
+    finishedAtRef.current = new Date().toISOString();
     setPhase("done");
   };
 
@@ -364,6 +416,7 @@ export default function PrototypeInterviewPage({
 
   const next = async () => {
     if (qIndex >= questions.length - 1) {
+      finishedAtRef.current = new Date().toISOString();
       setPhase("done");
       speechTurnRef.current++;
       void speakAs(
@@ -377,6 +430,68 @@ export default function PrototypeInterviewPage({
   };
 
   const transcriptWords = transcript.trim().split(/\s+/).filter(Boolean).length;
+  const gradingPending = answers.some((a) => a?.status === "grading");
+
+  const nameMissing = candidateName.trim().length < MIN_NAME_LENGTH;
+
+  const beginInterview = () => {
+    if (nameMissing) return;
+    startedAtRef.current = new Date().toISOString();
+    finishedAtRef.current = "";
+    setLookAwayCount(0);
+    setSaveState({ status: "idle" });
+    void askQuestion(0);
+  };
+
+  const buildResultDraft = (): InterviewResultDraft => ({
+    candidateName: candidateName.trim(),
+    testId: activeTest?.id ?? null,
+    testTitle: activeTest?.title ?? "Quick practice",
+    voiceStyle,
+    startedAt: startedAtRef.current || new Date().toISOString(),
+    finishedAt: finishedAtRef.current || new Date().toISOString(),
+    lookAwayCount,
+    answers: questions.map((q, i) => ({
+      question: q.text,
+      questionId: q.id,
+      transcript: answers[i]?.transcript ?? "",
+      result: answers[i]?.result ?? null,
+    })),
+  });
+
+  const saveResult = async () => {
+    if (!answers.some(Boolean)) {
+      setSaveState({ status: "skipped" });
+      return;
+    }
+    setSaveState({ status: "saving" });
+    try {
+      const id = await saveInterviewResult(buildResultDraft());
+      setSaveState({ status: "saved", id });
+    } catch (error) {
+      setSaveState({ status: "error", error: error instanceof Error ? error.message : "Could not save" });
+    }
+  };
+
+  const onReadyToSave = useEffectEvent(() => void saveResult());
+
+  // Save once, after the last answer has finished grading in the background.
+  useEffect(() => {
+    if (phase !== "done" || gradingPending || saveState.status !== "idle") return;
+    const timer = window.setTimeout(onReadyToSave, 0);
+    return () => window.clearTimeout(timer);
+  }, [phase, gradingPending, saveState.status]);
+
+  const downloadReport = async () => {
+    setDownloading(true);
+    try {
+      const { downloadReportPdf } = await import("@/lib/reportPdf");
+      const draft = buildResultDraft();
+      await downloadReportPdf(draft, summarizeInterview(draft.answers), saveState.status === "saved" ? saveState.id : null);
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50/30 to-white">
@@ -400,8 +515,30 @@ export default function PrototypeInterviewPage({
                 : `Question ${Math.min(qIndex + 1, questions.length)} of ${questions.length}`}
             </p>
           </div>
-          <span className="rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-medium text-indigo-700">
-            {micOk ? "Mic enabled" : "Allow mic"}
+          <span
+            className={cn(
+              "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium",
+              micStatus === "granted"
+                ? "bg-emerald-50 text-emerald-700"
+                : micBlocked(micStatus)
+                  ? "bg-rose-50 text-rose-700"
+                  : micStatus === "prompt"
+                    ? "bg-amber-50 text-amber-700"
+                    : "bg-slate-100 text-slate-500"
+            )}
+          >
+            {micBlocked(micStatus) ? <MicOff className="h-3 w-3" /> : <Mic className="h-3 w-3" />}
+            {micStatus === "granted"
+              ? "Mic allowed"
+              : micStatus === "denied"
+                ? "Mic blocked"
+                : micStatus === "no-device"
+                  ? "No mic found"
+                  : micStatus === "unsupported"
+                    ? "Use Chrome/Edge"
+                    : micStatus === "prompt"
+                      ? "Mic not allowed yet"
+                      : "Checking mic…"}
           </span>
         </div>
         <div className="h-1 bg-slate-100">
@@ -420,6 +557,14 @@ export default function PrototypeInterviewPage({
           phase === "done" ? "max-w-4xl" : "max-w-6xl"
         )}
       >
+        {phase !== "done" && (
+          <MicPermissionNotice
+            status={micStatus}
+            checking={requestingMic}
+            onRetry={() => void enableMic()}
+          />
+        )}
+
         {phase === "intro" && (
           <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
           <div className="space-y-5">
@@ -603,15 +748,49 @@ export default function PrototypeInterviewPage({
                 )}
               </div>
 
+              <label
+                className={`mt-3 block rounded-2xl border p-3 ${
+                  nameMissing ? "border-rose-300 bg-rose-50/40" : "border-slate-200"
+                }`}
+              >
+                <span className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                  <UserRound className="h-3.5 w-3.5 text-indigo-600" /> Your name
+                  <span className="text-rose-500">*</span>
+                  <span className="text-slate-400">(saved with your result)</span>
+                </span>
+                <input
+                  required
+                  aria-invalid={nameMissing}
+                  value={candidateName}
+                  onChange={(e) => {
+                    setCandidateName(e.target.value);
+                    window.localStorage.setItem(NAME_STORAGE_KEY, e.target.value);
+                  }}
+                  maxLength={80}
+                  placeholder="e.g. Ravi Kumar"
+                  className="mt-1 w-full bg-transparent text-sm font-semibold text-slate-800 outline-none placeholder:font-normal placeholder:text-slate-400"
+                />
+              </label>
+
               <button
                 type="button"
-                onClick={() => void askQuestion(0)}
-                disabled={questionsLoading || questions.length === 0}
-                className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-indigo-600 to-blue-600 px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-indigo-200 transition hover:from-indigo-700 hover:to-blue-700 disabled:opacity-60"
+                onClick={beginInterview}
+                disabled={questionsLoading || questions.length === 0 || micBlocked(micStatus) || nameMissing}
+                className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-indigo-600 to-blue-600 px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-indigo-200 transition hover:from-indigo-700 hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Begin Interview <ChevronRight className="h-4 w-4" />
               </button>
-              {micError && (
+              {nameMissing && !micBlocked(micStatus) && (
+                <p className="mt-2 flex items-center justify-center gap-1.5 text-center text-xs font-medium text-rose-600">
+                  <UserRound className="h-3.5 w-3.5" /> Enter your name to begin
+                </p>
+              )}
+              {micBlocked(micStatus) && (
+                <p className="mt-2 flex items-center justify-center gap-1.5 text-center text-xs font-medium text-rose-600">
+                  <MicOff className="h-3.5 w-3.5" /> Allow your microphone to begin (see the message at the top)
+                </p>
+              )}
+              {micError && !micBlocked(micStatus) && (
                 <p className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-center text-xs text-rose-700">
                   {micError}
                 </p>
@@ -648,6 +827,7 @@ export default function PrototypeInterviewPage({
               onStopAnswer={() => void stopAnswer()}
               onReplay={() => void speakQuestion(question)}
               onLeave={leaveInterview}
+              onLookAwayCount={setLookAwayCount}
             />
 
             {phase === "review" && (
@@ -713,6 +893,54 @@ export default function PrototypeInterviewPage({
             title={activeTest?.title ?? "Quick practice"}
             questions={questions.map((q) => q.text)}
             answers={questions.map((_, i) => answers[i])}
+            toolbar={
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+                <p className="flex min-w-0 items-center gap-2 text-sm">
+                  {gradingPending || saveState.status === "idle" ? (
+                    <>
+                      <Loader2 className="h-4 w-4 shrink-0 animate-spin text-indigo-500" />
+                      <span className="text-slate-600">Finishing grading, then saving your result…</span>
+                    </>
+                  ) : saveState.status === "saving" ? (
+                    <>
+                      <CloudUpload className="h-4 w-4 shrink-0 animate-pulse text-indigo-500" />
+                      <span className="text-slate-600">Saving your result…</span>
+                    </>
+                  ) : saveState.status === "saved" ? (
+                    <>
+                      <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
+                      <span className="text-slate-700">
+                        Result saved
+                        <span className="ml-1.5 text-xs text-slate-400">ID {saveState.id}</span>
+                      </span>
+                    </>
+                  ) : saveState.status === "error" ? (
+                    <>
+                      <AlertCircle className="h-4 w-4 shrink-0 text-rose-500" />
+                      <span className="text-rose-700">Could not save: {saveState.error}</span>
+                      <button
+                        type="button"
+                        onClick={() => void saveResult()}
+                        className="shrink-0 rounded-lg border border-rose-200 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-50"
+                      >
+                        Retry
+                      </button>
+                    </>
+                  ) : (
+                    <span className="text-slate-500">No answers to save.</span>
+                  )}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void downloadReport()}
+                  disabled={gradingPending || downloading || !answers.some(Boolean)}
+                  className="inline-flex items-center gap-2 rounded-2xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                  Download PDF
+                </button>
+              </div>
+            }
             actions={
             <>
               <button

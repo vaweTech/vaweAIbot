@@ -24,6 +24,7 @@ import {
   Database,
   Upload,
   ClipboardList,
+  Trophy,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -60,6 +61,7 @@ const navigation: NavItem[] = [
     children: [
       { label: "Question Bank", href: "/admin/questions", icon: Database },
       { label: "Interview Tests", href: "/admin/tests", icon: ClipboardList },
+      { label: "Interview Results", href: "/admin/results", icon: Trophy },
       { label: "Bulk Import", href: "/admin/import", icon: Upload },
     ],
   },
