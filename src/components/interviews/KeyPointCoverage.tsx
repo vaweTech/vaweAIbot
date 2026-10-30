@@ -31,7 +31,7 @@ const SIDE_LABEL = {
   example: "Example",
 } as const;
 
-function KeyPointRow({ point }: { point: KeyPointResult }) {
+function KeyPointRow({ point, judgedByAi }: { point: KeyPointResult; judgedByAi: boolean }) {
   const style = STATUS_STYLE[point.status];
   const Icon = style.icon;
 
@@ -56,8 +56,16 @@ function KeyPointRow({ point }: { point: KeyPointResult }) {
               {SIDE_LABEL[point.side]}
             </span>
           )}
-          <span className="text-slate-400">{Math.round(point.coverage * 100)}% match</span>
+          {!judgedByAi && (
+            <span className="text-slate-400">{Math.round(point.coverage * 100)}% match</span>
+          )}
         </div>
+        {point.evidence && (
+          <p className="mt-1.5 text-xs italic text-slate-500">You said: &ldquo;{point.evidence}&rdquo;</p>
+        )}
+        {point.reason && point.status !== "covered" && (
+          <p className="mt-1 text-xs text-slate-500">{point.reason}</p>
+        )}
       </div>
     </li>
   );
@@ -82,7 +90,9 @@ export function KeyPointCoverage({
         <div>
           <h3 className="text-sm font-semibold text-slate-900">What the answer needed</h3>
           <p className="mt-0.5 text-xs text-slate-500">
-            Matched by meaning, so different wording still counts.
+            {semantic.judgedBy === "ai"
+              ? "Checked by the AI examiner — your own words and examples count."
+              : "Matched by meaning, so different wording still counts."}
           </p>
         </div>
         <div className="flex items-center gap-3 text-xs">
@@ -115,7 +125,7 @@ export function KeyPointCoverage({
 
       <ul className="mt-4 space-y-2">
         {sorted.map((point) => (
-          <KeyPointRow key={point.id} point={point} />
+          <KeyPointRow key={point.id} point={point} judgedByAi={semantic.judgedBy === "ai"} />
         ))}
       </ul>
 

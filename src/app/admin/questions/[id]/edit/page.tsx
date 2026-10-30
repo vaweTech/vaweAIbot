@@ -16,6 +16,8 @@ type LoadedQuestion = {
     modelAnswer: string;
     botLines: string[];
     keyPoints: KeyPointInput[];
+    misconceptions?: string[];
+    rubricNotes?: string;
   };
 };
 
@@ -49,6 +51,8 @@ export default function EditQuestionPage({
           modelAnswer: data.answerKey.modelAnswer,
           keyPoints: data.answerKey.keyPoints,
           botLines: data.answerKey.botLines,
+          misconceptions: data.answerKey.misconceptions ?? [],
+          rubricNotes: data.answerKey.rubricNotes ?? "",
         });
       } catch (e) {
         if (active) setError(e instanceof Error ? e.message : "Could not load question");

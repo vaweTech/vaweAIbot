@@ -55,5 +55,6 @@ export async function getFirestore(): Promise<FirestoreBundle> {
 }
 
 export const QUESTIONS_COLLECTION = "questions";
+export const TESTS_COLLECTION = "interviewTests";
 /** Sub-path holding the model answer and embeddings — never readable by clients. */
 export const ANSWER_KEY_PATH = ["private", "answerKey"] as const;

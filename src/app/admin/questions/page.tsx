@@ -9,10 +9,11 @@ import { StatusBadge } from "@/components/common/StatusBadge";
 import { EmptyState } from "@/components/common/EmptyState";
 import { LoadingState } from "@/components/common/LoadingState";
 import { SetupNotice, useAdminStatus } from "@/components/admin/SetupNotice";
+import { TestAnswerModal } from "@/components/admin/TestAnswerModal";
 import { adminFetch } from "@/lib/adminClient";
 import { DIFFICULTIES } from "@/lib/utils";
 import type { BankStatus, QuestionSummary } from "@/types/questionBank";
-import { CheckCircle2, Pencil, Plus, Trash2, Upload, Undo2 } from "lucide-react";
+import { CheckCircle2, Mic, Pencil, Plus, Trash2, Upload, Undo2 } from "lucide-react";
 
 const TYPE_LABELS: Record<string, string> = {
   technical: "Technical",
@@ -27,6 +28,7 @@ export default function AdminQuestionsPage() {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState({ type: "", difficulty: "", status: "" });
+  const [testing, setTesting] = useState<QuestionSummary | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -233,6 +235,20 @@ export default function AdminQuestionsPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          disabled={q.keyPointCount === 0}
+                          title={
+                            q.keyPointCount === 0
+                              ? "Add key points before testing"
+                              : "Speak an answer and score it against the stored key"
+                          }
+                          onClick={() => setTesting(q)}
+                          className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 px-2.5 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          <Mic className="h-3 w-3" />
+                          Test
+                        </button>
                         <Link
                           href={`/admin/questions/${q.id}/edit`}
                           className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
@@ -276,6 +292,7 @@ export default function AdminQuestionsPage() {
           </div>
         )}
       </div>
+      {testing && <TestAnswerModal question={testing} onClose={() => setTesting(null)} />}
     </AppShell>
   );
 }

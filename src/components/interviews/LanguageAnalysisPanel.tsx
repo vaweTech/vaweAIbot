@@ -12,6 +12,7 @@ export type LanguageAnalysisView = {
   pronounErrors: number;
   correctSentences: number;
   mistakes: GrammarError[];
+  improvedAnswer?: string;
 };
 
 interface LanguageAnalysisPanelProps {
@@ -82,6 +83,15 @@ export function LanguageAnalysisPanel({ analysis }: LanguageAnalysisPanelProps) 
         <p className="rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
           No grammar or pronoun issues detected in this transcript.
         </p>
+      )}
+
+      {analysis.improvedAnswer && (
+        <div className="rounded-2xl border border-indigo-100 bg-indigo-50/60 p-4">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-indigo-700">
+            Your answer in correct English
+          </h4>
+          <p className="mt-2 text-sm leading-relaxed text-slate-700">{analysis.improvedAnswer}</p>
+        </div>
       )}
     </div>
   );

@@ -66,6 +66,8 @@ function cleanDraft(draft: QuestionDraft): QuestionDraft {
     followUpQuestion: draft.followUpQuestion?.trim() ?? "",
     tags: (draft.tags ?? []).map((t) => t.trim()).filter(Boolean),
     botLines: (draft.botLines ?? []).map((l) => l.trim()).filter(Boolean),
+    misconceptions: (draft.misconceptions ?? []).map((m) => m.trim()).filter(Boolean),
+    rubricNotes: draft.rubricNotes?.trim() ?? "",
     keyPoints: (draft.keyPoints ?? [])
       .filter((kp) => kp.text.trim())
       .map((kp) => ({
@@ -187,6 +189,8 @@ export async function createQuestion(
     answerEmbedding: embedded.answerEmbedding,
     keyPoints: embedded.keyPoints,
     botLines: draft.botLines,
+    misconceptions: draft.misconceptions,
+    rubricNotes: draft.rubricNotes,
     embeddingModel: EMBEDDING_MODEL,
   });
 
@@ -232,6 +236,8 @@ export async function updateQuestion(
     answerEmbedding: embedded.answerEmbedding,
     keyPoints: embedded.keyPoints,
     botLines: draft.botLines,
+    misconceptions: draft.misconceptions,
+    rubricNotes: draft.rubricNotes,
     embeddingModel: EMBEDDING_MODEL,
   });
 
@@ -329,6 +335,8 @@ export async function getQuestionWithAnswerKey(
       answerEmbedding: answerData?.answerEmbedding ?? [],
       keyPoints: answerData?.keyPoints ?? [],
       botLines: answerData?.botLines ?? [],
+      misconceptions: answerData?.misconceptions ?? [],
+      rubricNotes: answerData?.rubricNotes ?? "",
       embeddingModel: answerData?.embeddingModel ?? EMBEDDING_MODEL,
     },
   };

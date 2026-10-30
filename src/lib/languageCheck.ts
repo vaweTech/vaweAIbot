@@ -361,6 +361,56 @@ export function analyzeLanguage(text: string): LanguageAnalysis {
   };
 }
 
+/**
+ * Combines an examiner model's mistakes with the rule-based ones and re-scores.
+ * The rules only know a few fixed patterns, so the model's list is primary and
+ * rule hits are kept only where the model did not already flag the same words.
+ */
+export function mergeJudgedMistakes(
+  base: LanguageAnalysis,
+  judged: { original: string; correction: string; category: string; explanation: string }[]
+): LanguageAnalysis {
+  const fromJudge: GrammarError[] = judged.map((m, index) => ({
+    id: `ai-${index}`,
+    category: m.category,
+    original: m.original.trim(),
+    correction: m.correction.trim(),
+    explanation: m.explanation.trim(),
+  }));
+
+  const overlaps = (a: string, b: string) => {
+    const x = a.toLowerCase();
+    const y = b.toLowerCase();
+    return x.includes(y) || y.includes(x);
+  };
+  const ruleOnly = base.mistakes.filter(
+    (rule) => !fromJudge.some((m) => overlaps(m.original, rule.original))
+  );
+
+  const mistakes = [...fromJudge, ...ruleOnly].slice(0, 10);
+  const grammarErrors = mistakes.filter((m) => m.category !== "Pronouns").length;
+  const pronounErrors = mistakes.length - grammarErrors;
+
+  if (base.words < 8) {
+    return { ...base, mistakes, grammarErrors, pronounErrors };
+  }
+
+  // Longer answers naturally contain more slips, so each one costs less there.
+  const perError = Math.min(1, Math.max(0.5, 40 / base.words));
+  const grammarScore = Math.max(20, 96 - grammarErrors * 9 * perError);
+  let pronounsScore = Math.max(20, 96 - pronounErrors * 12 * perError);
+  if (base.pronounUses === 0 && base.words >= 20) pronounsScore = Math.min(pronounsScore, 78);
+
+  return {
+    ...base,
+    mistakes,
+    grammarScore: clamp(grammarScore),
+    pronounsScore: clamp(pronounsScore),
+    grammarErrors,
+    pronounErrors,
+  };
+}
+
 export function languageSummary(analysis: LanguageAnalysis): string {
   if (analysis.words < 8) {
     return "Too little speech to judge grammar and pronouns. Please speak for at least 20–30 seconds.";

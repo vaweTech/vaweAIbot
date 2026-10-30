@@ -109,6 +109,8 @@ export function toQuestionDraft(raw: Record<string, unknown>): QuestionDraft {
     keyPoints: keyPoints.filter((kp) => kp.text.trim()),
     followUpQuestion: String(raw.followUpQuestion ?? "").trim(),
     botLines: toList(raw.botLines),
+    misconceptions: toList(raw.misconceptions),
+    rubricNotes: String(raw.rubricNotes ?? "").trim(),
     status: String(raw.status ?? "") === "approved" ? "approved" : "draft",
   };
 }

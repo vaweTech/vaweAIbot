@@ -23,6 +23,7 @@ import {
   Sparkles,
   Database,
   Upload,
+  ClipboardList,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -58,6 +59,7 @@ const navigation: NavItem[] = [
     icon: Database,
     children: [
       { label: "Question Bank", href: "/admin/questions", icon: Database },
+      { label: "Interview Tests", href: "/admin/tests", icon: ClipboardList },
       { label: "Bulk Import", href: "/admin/import", icon: Upload },
     ],
   },

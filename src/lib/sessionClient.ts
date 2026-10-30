@@ -2,7 +2,9 @@
 
 import type { AnswerEvaluation, EvaluationMode } from "@/lib/answerEvaluation";
 import type { SessionQuestion } from "@/app/api/questions/session/route";
+import { getAdminCode } from "@/lib/adminClient";
 import type { BankQuestionType } from "@/types/questionBank";
+import type { InterviewTest, TestSummary } from "@/types/interviewTest";
 
 export type { SessionQuestion };
 
@@ -39,6 +41,27 @@ export async function fetchSessionQuestions(options: {
   } catch (error) {
     return { questions: [], error: error instanceof Error ? error.message : "Network error" };
   }
+}
+
+/** Published tests a student can pick. Empty on failure, like fetchSessionQuestions. */
+export async function fetchPublishedTests(): Promise<{ tests: TestSummary[]; error: string | null }> {
+  try {
+    const response = await fetch("/api/tests");
+    if (!response.ok) return { tests: [], error: await readError(response) };
+    const data = (await response.json()) as { tests: TestSummary[] };
+    return { tests: data.tests ?? [], error: null };
+  } catch (error) {
+    return { tests: [], error: error instanceof Error ? error.message : "Network error" };
+  }
+}
+
+/** One test with its questions. Sends the admin code so admins can preview drafts. */
+export async function fetchTest(id: string): Promise<InterviewTest> {
+  const response = await fetch(`/api/tests/${encodeURIComponent(id)}`, {
+    headers: { "x-admin-code": getAdminCode() },
+  });
+  if (!response.ok) throw new Error(await readError(response));
+  return ((await response.json()) as { test: InterviewTest }).test;
 }
 
 /** Grades an answer on the server against the stored answer key. */

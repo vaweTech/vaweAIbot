@@ -19,19 +19,23 @@ import { AlertTriangle, Copy, Plus, Save, Trash2 } from "lucide-react";
 
 type FormKeyPoint = KeyPointInput & { synonymsText: string };
 
-type FormState = Omit<QuestionDraft, "keyPoints" | "tags" | "botLines"> & {
+type FormState = Omit<QuestionDraft, "keyPoints" | "tags" | "botLines" | "misconceptions"> & {
   keyPoints: FormKeyPoint[];
   tagsText: string;
   botLinesText: string;
+  misconceptionsText: string;
 };
 
 function toFormState(draft: QuestionDraft): FormState {
   const keyPoints = draft.keyPoints.length > 0 ? draft.keyPoints : [emptyKeyPoint()];
+  const { misconceptions, ...rest } = draft;
   return {
-    ...draft,
+    ...rest,
+    rubricNotes: draft.rubricNotes ?? "",
     keyPoints: keyPoints.map((kp) => ({ ...kp, synonymsText: kp.synonyms.join(", ") })),
     tagsText: draft.tags.join(", "),
     botLinesText: draft.botLines.join("\n"),
+    misconceptionsText: (misconceptions ?? []).join("\n"),
   };
 }
 
@@ -56,6 +60,11 @@ function toDraft(form: FormState): QuestionDraft {
       .split("\n")
       .map((l) => l.trim())
       .filter(Boolean),
+    misconceptions: form.misconceptionsText
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean),
+    rubricNotes: form.rubricNotes,
     keyPoints: form.keyPoints.map(({ synonymsText, ...kp }) => ({
       ...kp,
       synonyms: splitList(synonymsText),
@@ -71,6 +80,9 @@ interface QuestionFormProps {
   questionId?: string;
   initialDraft?: QuestionDraft;
   disabled?: boolean;
+  /** When set, the form stays in place after saving (e.g. inside the test builder). */
+  onSaved?: (id: string) => void;
+  onCancel?: () => void;
 }
 
 export function QuestionForm({
@@ -78,6 +90,8 @@ export function QuestionForm({
   questionId,
   initialDraft,
   disabled,
+  onSaved,
+  onCancel,
 }: QuestionFormProps) {
   const router = useRouter();
   const [form, setForm] = useState<FormState>(() =>
@@ -152,6 +166,11 @@ export function QuestionForm({
         return;
       }
 
+      const savedId = result.id ?? questionId;
+      if (onSaved && savedId) {
+        onSaved(savedId);
+        return;
+      }
       router.push("/admin/questions");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save the question");
@@ -410,6 +429,44 @@ export function QuestionForm({
         </div>
       </section>
 
+      <section className="rounded-2xl border border-border bg-white p-5 shadow-sm">
+        <h2 className="text-sm font-semibold text-slate-900">
+          Grading rubric <span className="font-normal text-muted">(optional)</span>
+        </h2>
+        <p className="mt-1 text-xs text-muted">
+          Helps the AI examiner grade this question the way your trainers would.
+        </p>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">
+              Common misconceptions (one per line)
+            </label>
+            <textarea
+              value={form.misconceptionsText}
+              onChange={(e) => patch({ misconceptionsText: e.target.value })}
+              rows={4}
+              placeholder={"Overloading is runtime polymorphism\nReact is a full framework like Angular"}
+              className={inputClass}
+            />
+            <p className="mt-1 text-[11px] text-muted">
+              A student who states one of these loses correctness marks.
+            </p>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">
+              Notes for the examiner
+            </label>
+            <textarea
+              value={form.rubricNotes}
+              onChange={(e) => patch({ rubricNotes: e.target.value })}
+              rows={4}
+              placeholder={"A definition alone is not full marks — expect an example.\nAccept overloading and overriding as examples, but they must be told apart correctly."}
+              className={inputClass}
+            />
+          </div>
+        </div>
+      </section>
+
       {problems.length > 0 && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
           <p className="font-semibold">Fix these before saving</p>
@@ -467,12 +524,22 @@ export function QuestionForm({
             ? "Save changes"
             : "Save question"}
         </button>
-        <Link
-          href="/admin/questions"
-          className="rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
-        >
-          Cancel
-        </Link>
+        {onCancel ? (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
+          >
+            Cancel
+          </button>
+        ) : (
+          <Link
+            href="/admin/questions"
+            className="rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
+          >
+            Cancel
+          </Link>
+        )}
         {saving && (
           <span className="text-xs text-muted">
             Embedding the question, the answer and each key point…

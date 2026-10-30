@@ -55,6 +55,26 @@ body {
   animation: waveform 0.8s ease-in-out infinite;
 }
 
+@keyframes blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  95% { transform: scaleY(0.1); }
+}
+
+@keyframes breathe {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(1.5px); }
+}
+
+.animate-blink {
+  animation: blink 4.5s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.animate-breathe {
+  animation: breathe 4s ease-in-out infinite;
+}
+
 .animate-pulse-ring {
   animation: pulse-ring 1.2s ease-out infinite;
 }

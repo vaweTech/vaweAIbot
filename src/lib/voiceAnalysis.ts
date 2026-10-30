@@ -53,6 +53,8 @@ export type GrammarAnalysisResult = {
   pronounErrors: number;
   correctSentences: number;
   mistakes: GrammarError[];
+  /** AI grading only: the student's answer rewritten in correct English. */
+  improvedAnswer?: string;
 };
 
 /**

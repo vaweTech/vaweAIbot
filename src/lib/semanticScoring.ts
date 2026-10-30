@@ -51,12 +51,19 @@ export type KeyPointResult = {
   /** Rescaled 0-1 credit awarded for this point. */
   coverage: number;
   status: KeyPointStatus;
+  /** AI grading only: the student's words that earned the credit. */
+  evidence?: string;
+  /** AI grading only: why the verdict was given. */
+  reason?: string;
 };
 
 export type SemanticResult = {
   /** 0-100, weighted key-point coverage. */
   contentScore: number;
-  /** 0-100, whole answer against the whole model answer. */
+  /**
+   * 0-100. Embeddings: whole answer against the whole model answer.
+   * AI grading: the examiner's judgement of how directly the question was answered.
+   */
   answerSimilarity: number;
   keyPoints: KeyPointResult[];
   coveredCount: number;
@@ -67,7 +74,11 @@ export type SemanticResult = {
   capped: boolean;
   /** GD only: how much of each argument side the student touched, 0-100. */
   sideBalance: Record<Exclude<ArgumentSide, "none">, number> | null;
+  /** Who decided the key-point verdicts. */
+  judgedBy: "ai" | "embeddings";
 };
+
+const VERDICT_CREDIT: Record<KeyPointStatus, number> = { covered: 1, partial: 0.5, missed: 0 };
 
 export function rescale(similarity: number, floor: number, ceiling: number): number {
   const span = ceiling - floor;
@@ -128,7 +139,102 @@ function emptyResult(): SemanticResult {
     missedMustHave: [],
     capped: false,
     sideBalance: null,
+    judgedBy: "embeddings",
   };
+}
+
+/**
+ * Weighted coverage, counts and side balance for a set of verdicts.
+ *
+ * The must-have cap only applies to embedding verdicts: similarity cannot tell
+ * a wrong answer from a related one, so a missing essential point is the best
+ * available signal. An examiner's verdict already accounts for it through the
+ * rubric, and capping on top would punish the same omission twice.
+ */
+function summarize(
+  keyPoints: KeyPointResult[],
+  includeSideBalance: boolean,
+  capMustHave: boolean
+): Omit<SemanticResult, "answerSimilarity" | "judgedBy"> {
+  const totalWeight = keyPoints.reduce((sum, kp) => sum + kp.weight, 0);
+  let contentScore =
+    totalWeight > 0
+      ? (keyPoints.reduce((sum, kp) => sum + kp.coverage * kp.weight, 0) / totalWeight) * 100
+      : 0;
+
+  const missedMustHave = keyPoints
+    .filter((kp) => kp.mustHave && kp.status === "missed")
+    .map((kp) => kp.text);
+
+  const capped = capMustHave && missedMustHave.length > 0 && contentScore > MUST_HAVE_CAP;
+  if (capped) contentScore = MUST_HAVE_CAP;
+
+  let sideBalance: SemanticResult["sideBalance"] = null;
+  if (includeSideBalance) {
+    sideBalance = { for: 0, against: 0, example: 0 };
+    for (const side of ["for", "against", "example"] as const) {
+      const points = keyPoints.filter((kp) => kp.side === side);
+      sideBalance[side] =
+        points.length > 0
+          ? Math.round((points.reduce((sum, kp) => sum + kp.coverage, 0) / points.length) * 100)
+          : 0;
+    }
+  }
+
+  return {
+    contentScore: Math.round(contentScore),
+    keyPoints,
+    coveredCount: keyPoints.filter((kp) => kp.status === "covered").length,
+    partialCount: keyPoints.filter((kp) => kp.status === "partial").length,
+    missedCount: keyPoints.filter((kp) => kp.status === "missed").length,
+    missedMustHave,
+    capped,
+    sideBalance,
+  };
+}
+
+/**
+ * Builds the coverage result from an examiner model's verdicts. No embedding
+ * calls are made: the examiner already read the answer, so vectors would only
+ * add cost.
+ */
+export function semanticFromVerdicts(
+  answerKey: AnswerKey,
+  verdicts: { id: string; status: KeyPointStatus; evidence: string; reason?: string }[],
+  options: { includeSideBalance?: boolean; onTopic: number }
+): SemanticResult {
+  const byId = new Map(verdicts.map((v) => [v.id, v]));
+  const keyPoints: KeyPointResult[] = answerKey.keyPoints.map((kp) => {
+    const verdict = byId.get(kp.id);
+    const status = verdict?.status ?? "missed";
+    return {
+      id: kp.id,
+      text: kp.text,
+      weight: kp.weight,
+      mustHave: kp.mustHave,
+      side: kp.side,
+      similarity: 0,
+      coverage: VERDICT_CREDIT[status],
+      status,
+      evidence: verdict?.evidence || undefined,
+      reason: verdict?.reason || undefined,
+    };
+  });
+
+  return {
+    ...summarize(keyPoints, Boolean(options.includeSideBalance), false),
+    answerSimilarity: Math.round(options.onTopic),
+    judgedBy: "ai",
+  };
+}
+
+/** All points missed, for answers too short to grade. */
+export function emptySemantic(answerKey: AnswerKey, includeSideBalance = false): SemanticResult {
+  return semanticFromVerdicts(
+    answerKey,
+    answerKey.keyPoints.map((kp) => ({ id: kp.id, status: "missed" as const, evidence: "" })),
+    { includeSideBalance, onTopic: 0 }
+  );
 }
 
 export async function scoreAnswerSemantically(
@@ -163,19 +269,6 @@ export async function scoreAnswerSemantically(
     };
   });
 
-  const totalWeight = keyPoints.reduce((sum, kp) => sum + kp.weight, 0);
-  let contentScore =
-    totalWeight > 0
-      ? (keyPoints.reduce((sum, kp) => sum + kp.coverage * kp.weight, 0) / totalWeight) * 100
-      : 0;
-
-  const missedMustHave = keyPoints
-    .filter((kp) => kp.mustHave && kp.status === "missed")
-    .map((kp) => kp.text);
-
-  const capped = missedMustHave.length > 0 && contentScore > MUST_HAVE_CAP;
-  if (capped) contentScore = MUST_HAVE_CAP;
-
   const answerSimilarity = answerKey.answerEmbedding?.length
     ? rescale(
         cosineSimilarity(answerKey.answerEmbedding, wholeEmbedding),
@@ -184,27 +277,9 @@ export async function scoreAnswerSemantically(
       ) * 100
     : 0;
 
-  let sideBalance: SemanticResult["sideBalance"] = null;
-  if (options.includeSideBalance) {
-    sideBalance = { for: 0, against: 0, example: 0 };
-    for (const side of ["for", "against", "example"] as const) {
-      const points = keyPoints.filter((kp) => kp.side === side);
-      sideBalance[side] =
-        points.length > 0
-          ? Math.round((points.reduce((sum, kp) => sum + kp.coverage, 0) / points.length) * 100)
-          : 0;
-    }
-  }
-
   return {
-    contentScore: Math.round(contentScore),
+    ...summarize(keyPoints, Boolean(options.includeSideBalance), true),
     answerSimilarity: Math.round(answerSimilarity),
-    keyPoints,
-    coveredCount: keyPoints.filter((kp) => kp.status === "covered").length,
-    partialCount: keyPoints.filter((kp) => kp.status === "partial").length,
-    missedCount: keyPoints.filter((kp) => kp.status === "missed").length,
-    missedMustHave,
-    capped,
-    sideBalance,
+    judgedBy: "embeddings",
   };
 }

@@ -129,6 +129,45 @@ type VoiceSession = {
 
 export type SpeechLang = "en-IN" | "en-US" | "hi-IN";
 
+/** Interviewer voice choices. Every style reads English questions aloud. */
+export type VoiceStyle = "south-indian-male" | "en-US" | "hi-IN";
+
+type VoiceStyleSpec = {
+  /** Answers are scored in English, so even accent styles listen in English. */
+  recognitionLang: SpeechLang;
+  /** Voice languages in preference order. */
+  langs: string[];
+  /** Voice name fragments in preference order. */
+  names: string[];
+  gender?: "female" | "male";
+  rate?: number;
+  pitch?: number;
+};
+
+const VOICE_STYLES: Record<VoiceStyle, VoiceStyleSpec> = {
+  // No browser ships a "South Indian English" voice; Tamil/Telugu/Kannada/Malayalam
+  // voices reading English text give that accent (Edge has them as online voices).
+  "south-indian-male": {
+    recognitionLang: "en-IN",
+    langs: ["ta-in", "te-in", "kn-in", "ml-in", "en-in"],
+    names: ["Valluvar", "Mohan", "Gagan", "Midhun", "Prabhat", "Ravi", "Madhur", "Hemant"],
+    gender: "male",
+    rate: 1.00,
+    pitch: 0.95,
+  },
+  "en-US": { recognitionLang: "en-US", langs: ["en-us"], names: [], rate: 1.05 },
+  "hi-IN": {
+    recognitionLang: "en-IN",
+    langs: ["hi-in"],
+    names: ["Google हिन्दी", "Swara", "Kalpana", "Madhur", "Hemant"],
+    rate: 1.00,
+  },
+};
+
+export function recognitionLangFor(style: VoiceStyle): SpeechLang {
+  return VOICE_STYLES[style].recognitionLang;
+}
+
 /** Fix common STT mistakes for tech / Indian English answers. */
 export function cleanupTranscript(raw: string): string {
   let text = raw.replace(/\s+/g, " ").trim();
@@ -355,40 +394,63 @@ function isIndianVoice(voice: SpeechSynthesisVoice): boolean {
 
 function genderScore(voice: SpeechSynthesisVoice, gender: "female" | "male"): number {
   const name = voice.name.toLowerCase();
-  const femaleHints = ["female", "woman", "zira", "susan", "hazel", "heera", "neerja", "raveena", "veena", "samantha", "karen"];
-  const maleHints = ["male", "man", "david", "mark", "george", "ravi", "prabhat", "hemant", "daniel", "james"];
+  const femaleHints = [
+    "female", "woman", "zira", "susan", "hazel", "heera", "neerja", "raveena", "veena", "samantha", "karen",
+    "swara", "kalpana", "pallavi", "shruti", "sapna", "sobhana",
+  ];
+  const maleHints = [
+    "male", "man", "david", "mark", "george", "ravi", "prabhat", "hemant", "daniel", "james",
+    "madhur", "valluvar", "mohan", "gagan", "midhun",
+  ];
+
+  // Female hints win ties: "female" contains "male".
+  const isFemale = femaleHints.some((h) => name.includes(h));
+  const isMale = !isFemale && maleHints.some((h) => name.includes(h));
 
   if (gender === "female") {
-    if (femaleHints.some((h) => name.includes(h))) return 3;
-    if (maleHints.some((h) => name.includes(h))) return -2;
+    if (isFemale) return 3;
+    if (isMale) return -2;
     return 0;
   }
-  if (maleHints.some((h) => name.includes(h))) return 3;
-  if (femaleHints.some((h) => name.includes(h))) return -2;
+  if (isMale) return 3;
+  if (isFemale) return -2;
   return 0;
 }
 
 export function pickVoiceForProfile(
   voices: SpeechSynthesisVoice[],
-  profile: VoiceProfile
+  profile: VoiceProfile,
+  style?: VoiceStyle
 ): SpeechSynthesisVoice | null {
   if (voices.length === 0) return null;
+  const spec = style ? VOICE_STYLES[style] : undefined;
 
   const scored = voices.map((voice) => {
     let score = 0;
     const hay = `${voice.name} ${voice.lang}`.toLowerCase();
+    const voiceLang = voice.lang.toLowerCase().replace("_", "-");
+
+    // An explicit style choice outranks the default Indian-English preference.
+    if (spec) {
+      const nameIdx = spec.names.findIndex((n) => hay.includes(n.toLowerCase()));
+      if (nameIdx >= 0) score += 40 - nameIdx * 2;
+      const langIdx = spec.langs.indexOf(voiceLang);
+      if (langIdx >= 0) score += 25 - langIdx * 2;
+      if (spec.gender) score += genderScore(voice, spec.gender) * 8;
+    }
 
     // Strong preference for Indian / en-IN
     if (isIndianVoice(voice)) score += 10;
-    if (voice.lang.toLowerCase() === "en-in") score += 5;
-    if (voice.lang.toLowerCase().startsWith("en")) score += 2;
+    if (voiceLang === "en-in") score += 5;
+    if (voiceLang.startsWith("en")) score += 2;
 
-    // Preferred name matches
-    for (const pref of profile.preferredNames || []) {
-      if (hay.includes(pref.toLowerCase())) score += 8;
+    if (!spec) {
+      for (const pref of profile.preferredNames || []) {
+        if (hay.includes(pref.toLowerCase())) score += 8;
+      }
     }
 
-    score += genderScore(voice, profile.gender);
+    score += genderScore(voice, spec?.gender ?? profile.gender);
 
     return { voice, score };
   });
@@ -397,53 +459,202 @@ export function pickVoiceForProfile(
   return scored[0]?.voice ?? null;
 }
 
+/** What the synthesizer is saying right now, so an avatar can move its lips in time. */
+export type ActiveSpeech = {
+  token: number;
+  text: string;
+  rate: number;
+  /** performance.now() when the audio actually started. */
+  startedAt: number;
+  /** Latest word boundary reported by the voice (local voices only; network voices skip it). */
+  lastWord: { charIndex: number; at: number } | null;
+};
+
+let activeSpeech: ActiveSpeech | null = null;
+
+export function getActiveSpeech(): ActiveSpeech | null {
+  return activeSpeech;
+}
+
+/** Newer speakAs calls take over; older ones stop retrying. */
+let speakToken = 0;
+/** Held only so Chrome cannot garbage-collect an utterance while it plays (it then drops its events). */
+const liveUtterances = new Set<SpeechSynthesisUtterance>();
+
 /**
  * Speak with a named profile so each GD person has a different Indian-style voice.
  * Uses browser Speech Synthesis (Chrome/Edge often include Indian voices like Heera / Ravi).
  */
-export async function speakAs(profileId: string, text: string): Promise<void> {
+export async function speakAs(
+  profileId: string,
+  text: string,
+  options?: { style?: VoiceStyle }
+): Promise<void> {
   if (typeof window === "undefined" || !window.speechSynthesis) return;
 
   const profile = VOICE_PROFILES[profileId] ?? VOICE_PROFILES.interviewer;
+  const spec = options?.style ? VOICE_STYLES[options.style] : undefined;
+  const rate = spec?.rate ?? profile.rate;
+  const pitch = spec?.pitch ?? profile.pitch;
   const voices = await loadVoices();
-  const voice = pickVoiceForProfile(voices, profile);
+  const voice = pickVoiceForProfile(voices, profile, options?.style);
+  const synth = window.speechSynthesis;
+  const token = ++speakToken;
+
+  const chunks = splitForSpeech(text);
+  for (let i = 0; i < chunks.length; i++) {
+    if (token !== speakToken) return;
+    await speakChunk(chunks[i], { token, rate, pitch, voice, spec, cancelFirst: i === 0 });
+  }
+}
+
+/** Chrome's online voices silently stop after ~15s of one utterance, so long text is spoken in pieces. */
+const MAX_CHUNK_CHARS = 160;
+
+function splitForSpeech(text: string): string[] {
+  const sentences = text.trim().split(/(?<=[.!?]["')\]]*)\s+/);
+  const chunks: string[] = [];
+  for (const raw of sentences) {
+    const sentence = raw.trim();
+    if (!sentence) continue;
+    if (sentence.length <= MAX_CHUNK_CHARS) {
+      chunks.push(sentence);
+      continue;
+    }
+    let piece = "";
+    for (const part of sentence.split(/(?<=[,;:])\s+/)) {
+      if (piece && piece.length + part.length + 1 > MAX_CHUNK_CHARS) {
+        chunks.push(piece);
+        piece = part;
+      } else {
+        piece = piece ? `${piece} ${part}` : part;
+      }
+    }
+    if (piece) chunks.push(piece);
+  }
+  return chunks.length > 0 ? chunks : [text];
+}
+
+function speakChunk(
+  text: string,
+  {
+    token,
+    rate,
+    pitch,
+    voice,
+    spec,
+    cancelFirst,
+  }: {
+    token: number;
+    rate: number;
+    pitch: number;
+    voice: SpeechSynthesisVoice | null;
+    spec: (typeof VOICE_STYLES)[VoiceStyle] | undefined;
+    cancelFirst: boolean;
+  }
+): Promise<void> {
+  const synth = window.speechSynthesis;
   const words = text.trim().split(/\s+/).filter(Boolean).length;
-  const estimatedMs = Math.max(3000, Math.min(28000, Math.round((words / Math.max(profile.rate, 0.6)) * 420)));
+  const estimatedMs = Math.max(2500, Math.round((words / Math.max(rate, 0.6)) * 420));
 
   return new Promise((resolve) => {
     let settled = false;
+    let started = false;
+    let attempts = 0;
+    let current: SpeechSynthesisUtterance | null = null;
     let resumeTimer: ReturnType<typeof setInterval> | null = null;
     let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
+    let startTimer: ReturnType<typeof setTimeout> | null = null;
+    let silentTicks = 0;
 
     const finish = () => {
       if (settled) return;
       settled = true;
+      if (activeSpeech?.token === token) activeSpeech = null;
       if (resumeTimer) clearInterval(resumeTimer);
       if (fallbackTimer) clearTimeout(fallbackTimer);
+      if (startTimer) clearTimeout(startTimer);
+      if (current) liveUtterances.delete(current);
       resolve();
     };
 
-    window.speechSynthesis.cancel();
+    const superseded = () => token !== speakToken;
 
-    // Chrome often never fires utterance.onend, and also pauses TTS after a few seconds.
-    fallbackTimer = setTimeout(finish, estimatedMs + 1200);
+    const retry = () => {
+      if (startTimer) clearTimeout(startTimer);
+      if (current) liveUtterances.delete(current);
+      current = null;
+      synth.cancel();
+      setTimeout(speakOnce, 250);
+    };
+
+    function speakOnce() {
+      if (settled) return;
+      if (superseded()) return finish();
+      attempts += 1;
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = spec
+        ? voice?.lang || spec.recognitionLang
+        : voice?.lang?.startsWith("hi")
+          ? "hi-IN"
+          : "en-IN";
+      utterance.rate = rate;
+      utterance.pitch = pitch;
+      if (voice) utterance.voice = voice;
+      current = utterance;
+      liveUtterances.add(utterance);
+
+      utterance.onstart = () => {
+        if (current !== utterance) return;
+        started = true;
+        activeSpeech = { token, text, rate, startedAt: performance.now(), lastWord: null };
+        if (startTimer) clearTimeout(startTimer);
+        // Chrome sometimes never fires onend; the silence check below normally catches that,
+        // and this is only a last resort if the synthesizer gets stuck "speaking".
+        fallbackTimer = setTimeout(finish, estimatedMs * 3 + 5000);
+      };
+      utterance.onend = () => {
+        if (current === utterance) finish();
+      };
+      utterance.onboundary = (event) => {
+        if (current !== utterance || activeSpeech?.token !== token) return;
+        if (event.name && event.name !== "word") return;
+        activeSpeech.lastWord = { charIndex: event.charIndex, at: performance.now() };
+      };
+      utterance.onerror = (event) => {
+        if (current !== utterance) return;
+        const cancelled = event.error === "interrupted" || event.error === "canceled";
+        if (!started && !cancelled && attempts < 2 && !superseded()) retry();
+        else finish();
+      };
+
+      synth.speak(utterance);
+      synth.resume();
+
+      // Chrome sometimes queues an utterance (often right after cancel or mic use) and never plays it.
+      startTimer = setTimeout(() => {
+        if (started || settled || current !== utterance) return;
+        if (attempts < 2 && !superseded()) retry();
+        else finish();
+      }, 2000);
+    }
+
     resumeTimer = setInterval(() => {
-      if (window.speechSynthesis.speaking && window.speechSynthesis.paused) {
-        window.speechSynthesis.resume();
+      if (synth.speaking && synth.paused) synth.resume();
+      // Chrome often skips onend; once the audio has stopped, finish instead of waiting for the fallback.
+      if (started && !synth.speaking && !synth.pending) {
+        silentTicks += 1;
+        if (silentTicks >= 3) finish();
+      } else {
+        silentTicks = 0;
       }
     }, 250);
 
-    setTimeout(() => {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = voice?.lang?.startsWith("hi") ? "hi-IN" : "en-IN";
-      utterance.rate = profile.rate;
-      utterance.pitch = profile.pitch;
-      if (voice) utterance.voice = voice;
-      utterance.onend = () => finish();
-      utterance.onerror = () => finish();
-      window.speechSynthesis.speak(utterance);
-      window.speechSynthesis.resume();
-    }, 80);
+    // speak() issued straight after cancel() is silently dropped by Chrome, so give it a beat.
+    const busy = cancelFirst && (synth.speaking || synth.pending);
+    if (busy) synth.cancel();
+    setTimeout(speakOnce, busy ? 250 : cancelFirst ? 50 : 0);
   });
 }
 
@@ -460,4 +671,21 @@ export async function getVoiceLabel(profileId: string): Promise<string> {
   const voice = pickVoiceForProfile(voices, profile);
   if (!voice) return `Indian ${profile.gender} (system)`;
   return voice.name;
+}
+
+/** Which installed voice a style will use, and whether it is a real match or a fallback. */
+export async function getStyleVoice(
+  profileId: string,
+  style: VoiceStyle
+): Promise<{ name: string; matched: boolean }> {
+  const spec = VOICE_STYLES[style];
+  const profile = VOICE_PROFILES[profileId] ?? VOICE_PROFILES.interviewer;
+  const voice = pickVoiceForProfile(await loadVoices(), profile, style);
+  if (!voice) return { name: "System default", matched: false };
+  const hay = voice.name.toLowerCase();
+  const langOrNameMatch =
+    spec.langs.includes(voice.lang.toLowerCase().replace("_", "-")) ||
+    spec.names.some((n) => hay.includes(n.toLowerCase()));
+  const genderOk = !spec.gender || genderScore(voice, spec.gender) >= 0;
+  return { name: voice.name, matched: langOrNameMatch && genderOk };
 }

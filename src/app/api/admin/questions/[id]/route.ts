@@ -27,6 +27,8 @@ export async function GET(
       answerKey: {
         modelAnswer: found.answerKey.modelAnswer,
         botLines: found.answerKey.botLines,
+        misconceptions: found.answerKey.misconceptions,
+        rubricNotes: found.answerKey.rubricNotes,
         keyPoints: found.answerKey.keyPoints.map(({ embedding, ...rest }) => rest),
       },
     });

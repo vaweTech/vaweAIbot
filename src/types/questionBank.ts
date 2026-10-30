@@ -33,6 +33,10 @@ export interface QuestionDraft {
   followUpQuestion: string;
   /** GD only: opening lines the AI bots can speak */
   botLines: string[];
+  /** Wrong ideas students commonly state; saying one costs correctness marks. */
+  misconceptions: string[];
+  /** Free-text guidance for the AI examiner, e.g. "a definition alone is not full marks". */
+  rubricNotes: string;
   status: BankStatus;
 }
 
@@ -61,6 +65,8 @@ export interface AnswerKey {
   answerEmbedding: number[];
   keyPoints: KeyPoint[];
   botLines: string[];
+  misconceptions: string[];
+  rubricNotes: string;
   embeddingModel: string;
 }
 
@@ -102,6 +108,8 @@ export function emptyQuestionDraft(): QuestionDraft {
     keyPoints: [emptyKeyPoint()],
     followUpQuestion: "",
     botLines: [],
+    misconceptions: [],
+    rubricNotes: "",
     status: "draft",
   };
 }
