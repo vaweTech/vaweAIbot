@@ -6,17 +6,18 @@ import {
   Captions,
   CaptionsOff,
   Eye,
+  LayoutGrid,
   Mic,
   MicOff,
-  PhoneOff,
   RotateCcw,
   ScanFace,
+  ShieldCheck,
   Signal,
-  Square,
+  Users,
   Video,
   VideoOff,
+  X,
 } from "lucide-react";
-import { AudioWaveform } from "@/components/interviews/AudioWaveform";
 import { InterviewerAvatar, type AvatarLook } from "@/components/interviews/InterviewerAvatar";
 import { FACE_MESSAGES, useFaceMonitor, type FaceStatus } from "@/components/interviews/useFaceMonitor";
 import type { VoiceStyle } from "@/lib/speech";
@@ -101,17 +102,25 @@ function SpeakingBars({ active }: { active: boolean }) {
   );
 }
 
-function ControlButton({
+/** A meeting-app toolbar button: icon above a short label. */
+function ToolbarButton({
   onClick,
   disabled,
   label,
-  active = true,
+  title,
+  pressed,
+  highlight,
+  hideOnMobile,
   children,
 }: {
   onClick: () => void;
   disabled?: boolean;
   label: string;
-  active?: boolean;
+  title?: string;
+  pressed?: boolean;
+  hideOnMobile?: boolean;
+  /** Draws attention to the button, e.g. "Unmute" when it is the student's turn. */
+  highlight?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -119,15 +128,34 @@ function ControlButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      title={label}
-      aria-label={label}
+      title={title ?? label}
+      aria-label={title ?? label}
+      aria-pressed={pressed}
       className={cn(
-        "flex h-11 w-11 items-center justify-center rounded-full transition disabled:cursor-not-allowed disabled:opacity-40",
-        active ? "bg-slate-700 text-white hover:bg-slate-600" : "bg-rose-500/90 text-white hover:bg-rose-500"
+        hideOnMobile ? "hidden sm:flex" : "flex",
+        "min-w-[3.1rem] flex-col items-center gap-1 rounded-lg px-1 py-1.5 text-[10px] font-medium text-zinc-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent sm:min-w-[4.5rem] sm:px-2 sm:text-[11px]",
+        highlight && "bg-white/10 ring-1 ring-[#0e72ed]"
       )}
     >
-      {children}
+      <span className="flex h-6 items-center justify-center">{children}</span>
+      <span className="whitespace-nowrap">{label}</span>
     </button>
+  );
+}
+
+/** Name plate in the bottom-left corner of a video tile. */
+function NamePlate({ name, muted, speaking }: { name: string; muted: boolean; speaking?: boolean }) {
+  return (
+    <span className="inline-flex max-w-full items-center gap-1 rounded bg-black/65 px-1.5 py-0.5 text-[11px] font-medium text-white sm:text-xs">
+      {muted ? (
+        <MicOff className="h-3 w-3 shrink-0 text-[#e02828]" />
+      ) : speaking ? (
+        <SpeakingBars active />
+      ) : (
+        <Mic className="h-3 w-3 shrink-0" />
+      )}
+      <span className="truncate">{name}</span>
+    </span>
   );
 }
 
@@ -148,7 +176,10 @@ export function InterviewRoom({
   onReplay,
   onLeave,
   onLookAwayCount,
+  candidateName,
 }: {
+  /** Shown on the student's own tile, like a meeting display name. */
+  candidateName?: string;
   /** Reports the running count of look-away warnings, e.g. to save with the result. */
   onLookAwayCount?: (count: number) => void;
   /** Seconds until recording starts by itself; null when not counting down. */
@@ -170,6 +201,7 @@ export function InterviewRoom({
 }) {
   const persona = INTERVIEWER_PERSONAS[voiceStyle];
   const [captionsOn, setCaptionsOn] = useState(true);
+  const [showParticipants, setShowParticipants] = useState(false);
   const [cameraOn, setCameraOn] = useState(false);
   const [cameraError, setCameraError] = useState("");
   const [sessionSeconds, setSessionSeconds] = useState(0);
@@ -215,37 +247,45 @@ export function InterviewRoom({
   const showStudentCaption = listening && liveText;
 
   return (
-    <div className="overflow-hidden rounded-3xl bg-slate-950 shadow-2xl shadow-slate-900/20 ring-1 ring-slate-900/10">
-      <div className="flex items-center justify-between gap-3 border-b border-white/5 px-4 py-2.5 text-xs text-slate-300">
-        <div className="flex items-center gap-2">
-          {listening ? (
-            <span className="inline-flex items-center gap-1.5 rounded-md bg-rose-600/90 px-2 py-0.5 font-semibold text-white">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" /> REC {formatClock(elapsed)}
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-500/15 px-2 py-0.5 font-medium text-emerald-300">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Live
-            </span>
-          )}
-          <span className="hidden text-slate-400 sm:inline">{formatClock(sessionSeconds)}</span>
+    <div className="overflow-hidden rounded-xl bg-[#1a1a1a] shadow-2xl shadow-black/30 ring-1 ring-black/40">
+      <div className="flex items-center justify-between gap-3 bg-[#1a1a1a] px-3 py-2 text-xs text-zinc-300">
+        <div className="flex min-w-0 items-center gap-2">
+          <ShieldCheck className="h-4 w-4 shrink-0 text-[#23d959]" aria-label="Secure session" />
+          <span className="truncate font-medium text-zinc-100">{persona.name.split(" ")[0]}&apos;s interview room</span>
+          <span className="hidden text-zinc-500 sm:inline">·</span>
+          <span className="hidden text-zinc-400 sm:inline">
+            Question {questionNumber} of {totalQuestions}
+          </span>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
           {face.lookAwayCount > 0 && (
             <span
-              className="inline-flex items-center gap-1 rounded-md bg-amber-500/15 px-2 py-0.5 font-medium text-amber-300"
+              className="inline-flex items-center gap-1 rounded bg-amber-500/15 px-1.5 py-0.5 font-medium text-amber-300"
               title="Times you looked away from the screen"
             >
-              <Eye className="h-3 w-3" /> Looked away {face.lookAwayCount}×
+              <Eye className="h-3 w-3" /> {face.lookAwayCount}×
             </span>
           )}
+          <span className="inline-flex items-center gap-1 text-zinc-400" title="Connection">
+            <Signal className="h-3.5 w-3.5 text-[#23d959]" />
+          </span>
+          <span className="tabular-nums text-zinc-300">{formatClock(sessionSeconds)}</span>
+          <span className="hidden items-center gap-1 rounded bg-white/5 px-2 py-0.5 text-zinc-300 sm:inline-flex">
+            <LayoutGrid className="h-3.5 w-3.5" /> Speaker View
+          </span>
         </div>
-        <p className="font-medium text-slate-200">
-          Question {questionNumber} <span className="text-slate-500">of {totalQuestions}</span>
-        </p>
-        <span className="inline-flex items-center gap-1 text-slate-400">
-          <Signal className="h-3.5 w-3.5 text-emerald-400" /> HD
-        </span>
       </div>
+      <p className="bg-[#1a1a1a] px-3 pb-1 text-[11px] text-zinc-400 sm:hidden">
+        Question {questionNumber} of {totalQuestions}
+      </p>
 
-      <div className="relative aspect-[4/3] w-full overflow-hidden sm:aspect-video">
+      <div className="bg-black p-1.5 sm:p-2">
+      <div
+        className={cn(
+          "relative aspect-[4/3] w-full overflow-hidden rounded-md sm:aspect-video",
+          interviewerSpeaking ? "ring-[3px] ring-[#23d959]" : "ring-1 ring-white/5"
+        )}
+      >
         {/* Interviewer "camera": a soft office backdrop with depth-of-field blur. */}
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_20%_10%,#334155_0%,transparent_55%),radial-gradient(ellipse_at_85%_30%,#78350f55_0%,transparent_45%),radial-gradient(ellipse_at_50%_100%,#0f172a_0%,#020617_70%)]" />
         <div className="absolute left-[8%] top-[12%] h-[38%] w-[22%] rounded-lg bg-slate-700/30 blur-md" />
@@ -259,22 +299,20 @@ export function InterviewRoom({
         />
         {/* Soft key light from the side, like a webcam in a lit office. */}
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_35%_35%,rgba(255,237,213,0.10),transparent_50%)]" />
-        <div
-          className={cn(
-            "pointer-events-none absolute inset-0 rounded-none ring-inset transition",
-            interviewerSpeaking ? "ring-4 ring-emerald-400/80" : "ring-0"
-          )}
-        />
-
-        <div className="absolute left-3 top-3 flex items-center gap-2 rounded-lg bg-black/50 px-2.5 py-1.5 text-xs text-white backdrop-blur">
-          <SpeakingBars active={interviewerSpeaking} />
-          <span className="font-semibold">{persona.name}</span>
-          <span className="hidden text-slate-300 sm:inline">· {persona.title}</span>
+        <div className="absolute bottom-2 left-2 z-10 max-w-[60%]">
+          <NamePlate name={persona.name} muted={false} speaking={interviewerSpeaking} />
         </div>
 
+        {listening && (
+          <span className="absolute left-2 top-2 z-10 inline-flex items-center gap-1.5 rounded bg-black/65 px-2 py-1 text-[11px] font-medium text-white sm:text-xs">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-[#e02828]" />
+            Recording {formatClock(elapsed)}
+          </span>
+        )}
+
         {captionsOn && (showStudentCaption || question) && (
-          <div className="absolute inset-x-3 bottom-3 z-10 flex justify-center sm:inset-x-[18%] sm:bottom-5">
-            <p className="max-w-2xl rounded-lg bg-black/75 px-3 py-2 text-center text-sm leading-relaxed text-white sm:text-base">
+          <div className="absolute inset-x-3 bottom-9 z-10 flex justify-center sm:inset-x-[16%] sm:bottom-11">
+            <p className="max-w-2xl rounded bg-black/80 px-3 py-1.5 text-center text-sm leading-relaxed text-white sm:text-base">
               <span className={cn("mr-1.5 font-semibold", showStudentCaption ? "text-sky-300" : "text-amber-300")}>
                 {showStudentCaption ? "You:" : `${persona.name.split(" ")[0]}:`}
               </span>
@@ -302,14 +340,14 @@ export function InterviewRoom({
 
         <div
           className={cn(
-            "absolute right-3 top-3 aspect-video w-32 overflow-hidden rounded-xl bg-slate-800 shadow-xl ring-2 transition sm:w-48",
+            "absolute right-2 top-2 z-10 aspect-video w-28 overflow-hidden rounded-md bg-[#242424] shadow-xl ring-2 transition sm:w-40 lg:w-44",
             faceWarning
               ? lookingAway
-                ? "ring-4 ring-amber-400"
-                : "ring-4 ring-rose-500"
+                ? "ring-[3px] ring-amber-400"
+                : "ring-[3px] ring-[#e02828]"
               : listening
-                ? "ring-sky-400"
-                : "ring-white/10"
+                ? "ring-[3px] ring-[#23d959]"
+                : "ring-black/60"
           )}
         >
           {cameraOn && (
@@ -344,19 +382,19 @@ export function InterviewRoom({
               className="h-full w-full -scale-x-100 object-cover"
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-700 to-slate-800">
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-500 text-sm font-semibold text-white sm:h-12 sm:w-12">
-                You
+            <div className="flex h-full w-full items-center justify-center bg-[#242424]">
+              <span className="truncate px-2 text-base font-semibold text-white sm:text-xl">
+                {candidateName?.trim() || "You"}
               </span>
             </div>
           )}
-          <div className="absolute bottom-1 left-1.5 flex items-center gap-1 rounded bg-black/55 px-1.5 py-0.5 text-[10px] text-white">
-            {listening ? <Mic className="h-3 w-3 text-sky-300" /> : <MicOff className="h-3 w-3 text-slate-400" />}
-            You
+          <div className="absolute bottom-1 left-1 max-w-[70%]">
+            <NamePlate
+              name={candidateName?.trim() ? `${candidateName.trim()} (You)` : "You"}
+              muted={!listening}
+              speaking={listening}
+            />
           </div>
-          {listening && (
-            <AudioWaveform active bars={10} className="absolute bottom-1 right-1.5 h-4 w-14 gap-[2px]" />
-          )}
         </div>
 
         {prepCountdown !== null && phase === "question" && (
@@ -372,7 +410,7 @@ export function InterviewRoom({
                     cy="50"
                     r="44"
                     fill="none"
-                    stroke="#818cf8"
+                    stroke="#0e72ed"
                     strokeWidth="6"
                     strokeLinecap="round"
                     strokeDasharray={2 * Math.PI * 44}
@@ -386,14 +424,14 @@ export function InterviewRoom({
                 <button
                   type="button"
                   onClick={onStartAnswer}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-indigo-500 px-4 py-2 text-sm font-semibold hover:bg-indigo-400"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-[#0e72ed] px-4 py-2 text-sm font-semibold hover:bg-[#0b5cbf]"
                 >
                   <Mic className="h-4 w-4" /> Answer now
                 </button>
                 <button
                   type="button"
                   onClick={onCancelPrep}
-                  className="rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-white/20"
+                  className="rounded-lg bg-white/10 px-4 py-2 text-sm font-medium text-zinc-200 hover:bg-white/20"
                 >
                   I need more time
                 </button>
@@ -425,10 +463,48 @@ export function InterviewRoom({
             />
           </div>
         )}
+
+        {showParticipants && (
+          <div className="absolute bottom-2 right-2 z-30 w-60 rounded-lg bg-[#242424] p-3 text-sm text-zinc-200 shadow-2xl ring-1 ring-white/10 animate-fade-in">
+            <div className="flex items-center justify-between">
+              <p className="font-semibold text-white">Participants (2)</p>
+              <button
+                type="button"
+                onClick={() => setShowParticipants(false)}
+                className="rounded p-0.5 text-zinc-400 hover:bg-white/10 hover:text-white"
+                aria-label="Close participants"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <ul className="mt-2 space-y-2">
+              <li className="flex items-center gap-2">
+                <span className="flex h-7 w-7 items-center justify-center rounded bg-[#0e72ed] text-[11px] font-semibold text-white">
+                  {persona.name.split(" ").map((w) => w[0]).join("")}
+                </span>
+                <span className="min-w-0 flex-1 truncate">
+                  {persona.name} <span className="text-zinc-400">(Host)</span>
+                </span>
+                {interviewerSpeaking ? <SpeakingBars active /> : <Mic className="h-3.5 w-3.5 text-zinc-400" />}
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="flex h-7 w-7 items-center justify-center rounded bg-zinc-600 text-[11px] font-semibold text-white">
+                  {(candidateName?.trim() || "You").slice(0, 2).toUpperCase()}
+                </span>
+                <span className="min-w-0 flex-1 truncate">
+                  {candidateName?.trim() || "You"} <span className="text-zinc-400">(Me)</span>
+                </span>
+                {cameraOn ? <Video className="h-3.5 w-3.5 text-zinc-400" /> : <VideoOff className="h-3.5 w-3.5 text-[#e02828]" />}
+                {listening ? <Mic className="h-3.5 w-3.5 text-[#23d959]" /> : <MicOff className="h-3.5 w-3.5 text-[#e02828]" />}
+              </li>
+            </ul>
+          </div>
+        )}
+      </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-900 px-4 py-3">
-        <p className="min-w-0 flex-1 truncate text-xs text-slate-400">
+      <div className="bg-[#1a1a1a] px-3 pt-1.5 text-center">
+        <p className="truncate text-xs text-zinc-400">
           {micError ? (
             <span className="text-rose-300">{micError}</span>
           ) : cameraError ? (
@@ -439,61 +515,78 @@ export function InterviewRoom({
             `${persona.name.split(" ")[0]} is asking the question…`
           ) : prepCountdown !== null && phase === "question" ? (
             `Recording starts in ${prepCountdown}s — or press Answer now`
+          ) : listening && elapsed < 3 ? (
+            "You're unmuted — answer out loud, then press Mute when you finish"
           ) : listening && elapsed < IDEAL_MIN_SECONDS ? (
             "Keep going — aim for at least 30 seconds"
           ) : listening && elapsed > IDEAL_MAX_SECONDS ? (
             "Good length — start wrapping up"
           ) : phase === "question" ? (
-            "Your turn — press the mic and answer out loud"
+            "Your turn — press Unmute and answer out loud"
           ) : listening ? (
-            "Listening… press stop when you finish"
+            "Listening… press Mute when you finish"
           ) : (
             "Check the transcript below, then submit"
           )}
         </p>
+      </div>
 
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-1 bg-[#1a1a1a] px-2 py-1.5 sm:px-3">
+        <div className="flex items-center gap-0.5 sm:gap-1">
           {listening ? (
-            <button
-              type="button"
-              onClick={onStopAnswer}
-              className="inline-flex h-11 items-center gap-2 rounded-full bg-rose-600 px-5 text-sm font-semibold text-white shadow-lg shadow-rose-900/40 hover:bg-rose-500"
-            >
-              <Square className="h-4 w-4" /> Stop answer
-            </button>
+            <ToolbarButton onClick={onStopAnswer} label="Mute" title="Stop answering">
+              <Mic className="h-5 w-5 text-[#23d959]" />
+            </ToolbarButton>
           ) : (
-            <button
-              type="button"
+            <ToolbarButton
               onClick={onStartAnswer}
               disabled={phase !== "question"}
-              className="inline-flex h-11 items-center gap-2 rounded-full bg-indigo-500 px-5 text-sm font-semibold text-white shadow-lg shadow-indigo-900/40 hover:bg-indigo-400 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400 disabled:shadow-none"
+              label="Unmute"
+              title="Unmute and answer"
+              highlight={phase === "question" && !interviewerSpeaking}
             >
-              <Mic className="h-4 w-4" /> Answer
-            </button>
+              <MicOff className="h-5 w-5 text-[#e02828]" />
+            </ToolbarButton>
           )}
-          <ControlButton onClick={toggleCamera} label={cameraOn ? "Turn camera off" : "Turn camera on"} active={cameraOn}>
-            {cameraOn ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
-          </ControlButton>
-          <ControlButton
-            onClick={() => setCaptionsOn((on) => !on)}
-            label={captionsOn ? "Hide captions" : "Show captions"}
-          >
-            {captionsOn ? <Captions className="h-5 w-5" /> : <CaptionsOff className="h-5 w-5" />}
-          </ControlButton>
-          <ControlButton onClick={onReplay} disabled={phase !== "question"} label="Repeat the question">
-            <RotateCcw className="h-5 w-5" />
-          </ControlButton>
+          <ToolbarButton onClick={toggleCamera} label={cameraOn ? "Stop Video" : "Start Video"} pressed={cameraOn}>
+            {cameraOn ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5 text-[#e02828]" />}
+          </ToolbarButton>
         </div>
 
-        <div className="flex flex-1 justify-end">
-          <button
-            type="button"
-            onClick={onLeave}
-            className="inline-flex h-11 items-center gap-2 rounded-full bg-rose-600 px-4 text-sm font-semibold text-white hover:bg-rose-500"
+        <div className="flex items-center gap-0.5 sm:gap-1">
+          <ToolbarButton
+            onClick={() => setShowParticipants((open) => !open)}
+            label="Participants"
+            pressed={showParticipants}
+            hideOnMobile
           >
-            <PhoneOff className="h-4 w-4" /> <span className="hidden sm:inline">Leave</span>
-          </button>
+            <span className="relative">
+              <Users className="h-5 w-5" />
+              <span className="absolute -right-2.5 -top-1 rounded bg-zinc-600 px-1 text-[9px] font-semibold leading-tight">
+                2
+              </span>
+            </span>
+          </ToolbarButton>
+          <ToolbarButton
+            onClick={() => setCaptionsOn((on) => !on)}
+            label="Captions"
+            title={captionsOn ? "Hide captions" : "Show captions"}
+            pressed={captionsOn}
+          >
+            {captionsOn ? <Captions className="h-5 w-5" /> : <CaptionsOff className="h-5 w-5 text-zinc-400" />}
+          </ToolbarButton>
+          <ToolbarButton onClick={onReplay} disabled={phase !== "question"} label="Repeat" title="Repeat the question">
+            <RotateCcw className="h-5 w-5" />
+          </ToolbarButton>
         </div>
+
+        <button
+          type="button"
+          onClick={onLeave}
+          className="rounded-lg bg-[#e02828] px-3 py-2 text-sm font-semibold text-white hover:bg-[#c41f1f] sm:px-4"
+        >
+          Leave
+        </button>
       </div>
     </div>
   );

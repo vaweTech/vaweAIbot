@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { BrandLogo } from "@/components/common/BrandLogo";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
@@ -106,9 +107,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-border px-5 py-5">
         <Link href="/dashboard" className="flex items-center gap-3" onClick={onClose}>
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 text-white shadow-md shadow-indigo-200">
-            <Sparkles className="h-5 w-5" />
-          </div>
+          <BrandLogo size={40} />
           <div>
             <p className="text-sm font-bold text-slate-900">VAWE AI</p>
             <p className="text-[11px] text-muted">Assessment Platform</p>

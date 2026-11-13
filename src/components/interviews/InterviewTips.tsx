@@ -1,4 +1,4 @@
-import { Clock3, Lightbulb, Mic, PencilLine, ShieldCheck } from "lucide-react";
+import { Clock3, Lightbulb, Mic, Repeat, ShieldCheck } from "lucide-react";
 
 const TIPS = [
   {
@@ -17,9 +17,9 @@ const TIPS = [
     text: "Definitions alone earn part marks. Add how it works, a use case or a real situation you faced.",
   },
   {
-    icon: PencilLine,
-    title: "Fix misheard words",
-    text: "Before scoring you can edit the transcript. Correct only what the mic got wrong.",
+    icon: Repeat,
+    title: "Say each point once",
+    text: "Repeated words, phrases and sentences are counted as mistakes. Pause instead of restarting.",
   },
   {
     icon: ShieldCheck,

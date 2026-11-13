@@ -1,12 +1,50 @@
 @import "tailwindcss";
 
+/*
+ * Brand palette from the VAWE logo. The indigo and blue scales are redefined so every
+ * existing indigo-* / blue-* class follows the logo's indigo-purple and navy-blue.
+ */
+@theme {
+  --color-brand-navy: #0b1b45;
+  --color-brand-indigo: #464495;
+  --color-brand-blue: #4a639c;
+  --color-brand-teal: #7bc1bb;
+  --color-brand-orange: #f0874b;
+  --color-brand-amber: #f9b950;
+  --color-brand-rose: #cf695e;
+
+  --color-indigo-50: #f3f3fb;
+  --color-indigo-100: #e6e5f5;
+  --color-indigo-200: #cccbeb;
+  --color-indigo-300: #a9a7da;
+  --color-indigo-400: #807ec5;
+  --color-indigo-500: #5f5cad;
+  --color-indigo-600: #464495;
+  --color-indigo-700: #3a3880;
+  --color-indigo-800: #2d2c66;
+  --color-indigo-900: #1f1f4b;
+  --color-indigo-950: #12122f;
+
+  --color-blue-50: #f1f5fb;
+  --color-blue-100: #e0e8f4;
+  --color-blue-200: #c1d0e7;
+  --color-blue-300: #96add3;
+  --color-blue-400: #6c89bb;
+  --color-blue-500: #4a639c;
+  --color-blue-600: #3a5089;
+  --color-blue-700: #2e4072;
+  --color-blue-800: #22315a;
+  --color-blue-900: #16234a;
+  --color-blue-950: #0b1b45;
+}
+
 :root {
   --background: #f8fafc;
   --foreground: #0f172a;
   --card: #ffffff;
-  --primary: #4f46e5;
-  --primary-light: #eef2ff;
-  --primary-dark: #3730a3;
+  --primary: #464495;
+  --primary-light: #f3f3fb;
+  --primary-dark: #2d2c66;
   --border: #e2e8f0;
   --muted: #64748b;
   --success: #059669;
@@ -34,6 +72,40 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+/*
+ * Large-screen scaling. The layout is designed for screens up to ~1600px wide; on
+ * Full HD, QHD and 4K monitors the whole page is zoomed so text, icons and px-sized
+ * details stay readable instead of shrinking into a small block in the middle.
+ * Zoom also multiplies viewport units, so full-height sizes divide by --page-zoom.
+ */
+:root {
+  --page-zoom: 1;
+}
+@media (min-width: 1900px) {
+  :root { --page-zoom: 1.125; }
+}
+@media (min-width: 2500px) {
+  :root { --page-zoom: 1.4; }
+}
+@media (min-width: 3200px) {
+  :root { --page-zoom: 1.75; }
+}
+@media (min-width: 3800px) {
+  :root { --page-zoom: 2; }
+}
+body {
+  zoom: var(--page-zoom);
+}
+.min-h-screen {
+  min-height: calc(100vh / var(--page-zoom));
+}
+.h-screen {
+  height: calc(100vh / var(--page-zoom));
+}
+.max-h-\[70vh\] {
+  max-height: calc(70vh / var(--page-zoom));
 }
 
 @keyframes waveform {

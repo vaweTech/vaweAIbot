@@ -812,6 +812,7 @@ export default function PrototypeInterviewPage({
           <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
           <div className="min-w-0 space-y-5">
             <InterviewRoom
+              candidateName={candidateName}
               voiceStyle={voiceStyle}
               question={question}
               questionNumber={Math.min(qIndex + 1, questions.length)}

@@ -19,8 +19,8 @@ export function Header({ title, subtitle, onMenuClick, actions }: HeaderProps) {
 
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-white/90 backdrop-blur-md">
-      <div className="flex items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-        <div className="flex min-w-0 items-center gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 px-4 py-3 sm:px-6 sm:py-4 lg:px-8 xl:flex-nowrap">
+        <div className="flex min-w-0 flex-1 basis-0 items-center gap-3">
           <button
             onClick={onMenuClick}
             className="rounded-xl border border-border p-2 text-slate-600 hover:bg-slate-50 lg:hidden"
@@ -34,8 +34,12 @@ export function Header({ title, subtitle, onMenuClick, actions }: HeaderProps) {
             )}
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          {actions}
+        {actions && (
+          <div className="order-last flex w-full flex-wrap items-center gap-2 whitespace-nowrap xl:order-none xl:w-auto xl:flex-nowrap xl:gap-3">
+            {actions}
+          </div>
+        )}
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
           <Link
             href="/admin/questions"
             title="Admin — AI training data"
